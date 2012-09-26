@@ -1,0 +1,242 @@
+\input texinfo @c -*-texinfo-*-
+@c %**start of header
+@setfilename haxe.info
+@settitle HaXe programming language manual
+@c %**end of header
+
+@copying
+This is the HaXe language manual.
+
+Copyright (C) 2012 Oleg Sivokon
+
+Copying and distribution of this file, with or without
+modification, are permitted in any medium without royalty
+provided the copyright notice and this notice are preserved.
+
+@end copying
+
+@titlepage
+@title HaXe programming language manual
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@c Output the table of the contents at the beginning.
+@contents
+
+@ifnottex
+@node Top
+@top HaXe programming language
+
+@insertcopying
+@end ifnottex
+
+This is the root info page for HaXe programming language.  The sections
+below describe the language components.
+
+The complete official language reference can be found @url{http://haxe.org/doc, here}
+
+@strong{Keywords}
+
+@menu 
+* class::       Class declaration.
+* interface::   Interface declaration.
+* enum::        Enumerator declaration.
+* typedef::     Type declaration or alias.
+* function::    Function declaration.
+* var::         Variable declaration.
+* import::      Compiler instruction for referencing another class.
+* package::     Compiler instruction for referencing this class' location.
+* private::     Access modifier, restricts access to the class containing
+                the declaration.
+* public::      Access modifier, permits arbitrary access.
+* static::      Access modifier, binds the following declaration to the class
+                rather then instances of the class.
+* override::    Compiler instruction for generating a method that replaces
+                the method with the same name in the superclass.
+* do::          Do-while loop.
+* else::        The complement of the if-else construction.
+* try::         The code block expecting exceptions.
+* for::         The for(i...n) or for(i in x) loop.
+* if::          The condition checking construct.
+* switch::      Multiple condition matching construct.
+* while::       The while loop.
+* catch::       The exception handling block.
+* false::       Constant of type Bool.
+* true::        Constant of type Bool.
+* null::        Constant of type Null.
+* this::        In a method body, a variable compiler populats with the
+                reference to the object owning the method.
+* super::       Instruction to look in superclass for method definition.
+* in::          The keyword used in the for(i in x) loop.
+* break::       Conditional termination of code inside a loop.
+* continue::    Conditional skipping of the code inside a loop.
+
+@end menu
+
+@strong{Built-in classes}
+
+@menu
+
+* Array::
+* ArrayAccess::
+* Bool::
+* Class::
+* Date::
+* DateTools::
+* Dynamic::
+* EReg::
+* Enum::
+* EnumValue::
+* Float::
+* Hash::
+* Int::
+* IntHash::
+* IntIter::
+* Iterable::
+* Iterator::
+* Lambda::
+* List::
+* Math::
+* Null::
+* Reflect::
+* Std::
+* String::
+* StringBuf::
+* StringTools::
+* Sys::
+* Type::
+* UInt::
+* ValueType::
+* Void::
+* Xml::
+* XmlType::
+
+@end menu
+
+@node class
+@unnumbered
+@node interface
+@unnumbered
+@node enum
+@unnumbered
+@node typedef
+@unnumbered
+@node function
+@unnumbered
+@node var
+@unnumbered
+@node import
+@unnumbered
+@node package
+@unnumbered
+@node private
+@unnumbered
+@node public
+@unnumbered
+@node static
+@unnumbered
+@node override
+@unnumbered
+@node do
+@unnumbered
+@node else
+@unnumbered
+@node try
+@unnumbered
+@node for
+@unnumbered
+@node if
+@unnumbered
+@node switch
+@unnumbered
+@node while
+@unnumbered
+@node catch
+@unnumbered
+@node false
+@unnumbered
+@node true
+@unnumbered
+@node null
+@unnumbered
+@node this
+@unnumbered
+@node super
+@unnumbered
+@node in
+@unnumbered
+@node break
+@unnumbered
+@node continue
+@unnumbered
+
+@node Array
+@unnumbered
+@node ArrayAccess
+@unnumbered
+@node Bool
+@unnumbered
+@node Class
+@unnumbered
+@node Date
+@unnumbered
+@node DateTools
+@unnumbered
+@node Dynamic
+@unnumbered
+@node EReg
+@unnumbered
+@node Enum
+@unnumbered
+@node EnumValue
+@unnumbered
+@node Float
+@unnumbered
+@node Hash
+@unnumbered
+@node Int
+@unnumbered
+@node IntHash
+@unnumbered
+@node IntIter
+@unnumbered
+@node Iterable
+@unnumbered
+@node Iterator
+@unnumbered
+@node Lambda
+@unnumbered
+@node List
+@unnumbered
+@node Math
+@unnumbered
+@node Null
+@unnumbered
+@node Reflect
+@unnumbered
+@node Std
+@unnumbered
+@node String
+@unnumbered
+@node StringBuf
+@unnumbered
+@node StringTools
+@unnumbered
+@node Sys
+@unnumbered
+@node Type
+@unnumbered
+@node UInt
+@unnumbered
+@node ValueType
+@unnumbered
+@node Void
+@unnumbered
+@node Xml
+@unnumbered
+@node XmlType
+@unnumbered
+
+@bye

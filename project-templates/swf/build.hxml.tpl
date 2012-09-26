@@ -1,0 +1,6 @@
+-main {{package}}.{{main-class}}
+-debug
+-swf-version {{major-version}}
+-swf-header 800:600:31
+-cp {{project-directory}}/src
+-swf {{project-directory}}/bin/{{name}}.swf

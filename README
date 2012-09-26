@@ -1,0 +1,130 @@
+
+Emacs haxe editing mode.
+
+Inspired by downloading 500mb of an eclipse plugin for the same purpose.
+
+DESCRIPTION:
+        This project is the editing mode for HaXe. It is based on two other
+        projects: https://github.com/pdorrell/emacs-site-lisp/blob/master/haxe-mode.el
+        and: https://github.com/cloudshift/hx-emacs/blob/master/hxc-complete.el
+        Some features currently worked on are: auto-completion, flymake
+        integration, integration with Yasnippet, help and documentation.
+
+CHANGES:
+        There used to be integration with eprojects (I'll try to get it back)
+        It used to use ido for auto-completion, this version relies on
+        auto-complete library.
+
+INSTALLATION:
+        In the future you would be able to build the documentation and automatically
+        move the required files, currently, this all is a hand work.
+        To install the project you would need to add the directory containing project
+        sources to the `load-path' list. for example:
+        (add-to-list 'load-path (expand-file-name "~.emacs.d/plugins/hx-emacs/"))
+
+        Next, download and install auto-complete library:
+        http://cx4a.org/software/auto-complete/
+        Follow the installation instruction here:
+        http://cx4a.org/software/auto-complete/manual.html#Installation
+        but before you compile it (before the very first step), find file `haxe-mode'
+        in the xh-emacs directory and copy it to auto-complete/dict/ directory.
+        This file is used as a dictionary for some basic lexical completion.
+
+        Next, download and install Flymake: http://flymake.sourceforge.net/
+        The installation is trivial, I won't cover it here. Beside one thig you may
+        actually want: flymake cursor - this el library shows the error message
+        when you move the point to the error location. You can find it here:
+        http://www.emacswiki.org/emacs/flymake-cursor.el
+
+        Next, download and install Yasnippet. Note that Yasnippet and auto-complete
+        both are trying to use TAB key, it is easier to rebind Yasnippet to something
+        else, for example C-c // (this is the same key used in SRecode templates -
+        probably you won't be using both at the same time). Yasnippet library
+        can be found here: https://github.com/capitaomorte/yasnippet
+        After installing it (I will assume you installed it into:
+        ~/.emacs.d/plugins/yasnippet) find directory in hx-emacs/yasnippet/haxe-mode
+        copy this entire directory to the ~/.emacs.d/plugins/yasnippet/snippets
+        or whichever you set to be the `yas/load-directory' (To find out the value
+        of this variable do C-h v yas/load-directory .
+
+        There is a Makefile - it is currently used for building documentation (not
+        much of it yet) only. The documentation is compiled into info format.
+        It is far from being usable yet. I'll add more instructions once it makes more
+        sense to do.
+
+        Things you would typically want to add to your .emacs file:
+        
+        (add-to-list 'load-path (expand-file-name "~.emacs.d/plugins/hx-emacs/"))
+        (require 'haxe-mode)
+        (defconst my-haxe-style
+          '("java" (c-offsets-alist . ((case-label . +)
+                                       (arglist-intro . +)
+                                       (arglist-cont-nonempty . 0)
+                                       (arglist-close . 0)
+                                       (cpp-macro . 0))))
+          "My haXe Programming Style")
+        (add-hook 'haxe-mode-hook
+          (function (lambda () (c-add-style "haxe" my-haxe-style t))))
+        (add-hook 'haxe-mode-hook
+                  (function
+                   (lambda ()
+                     (setq tab-width 4)
+                     (setq indent-tabs-mode t)
+                     (setq fill-column 80)
+                     (auto-complete-mode 1)
+                     (local-set-key [(return)] 'newline-and-indent))))
+
+CONFIGURATION:
+        Below is the list of some configurable variables and a short explanation.
+        You are advised to look into the source code for better info. They are
+        documented the best I could, but will probably change more often then I
+        would be able to update the info.
+        
+        * haxe-compiler - the location of haxe compiler, This would normally be
+                          just "haxe", if it is on the system PATH.
+        * haxe-server-host - this is the IP where you want to run the compiler,
+                             once it is run as a server (this is used by both
+                             flymake and auto-complete).
+        * haxe-std-library - currently not used.
+        * haxe-log-level - controls verbosity of the messages haxe-mode prints
+                           to *Messages* buffer. Generally, you would like this
+                           to be set to the minimum (0).
+        * haxe-help-location - this is the path, where the documentation (info)
+                               files are. If you used make to build the
+                               documentation, it will be in the haxe-mode/bin/
+                               directory.
+        * hxtags-location - the location of the script used to generate TAGS
+                            file (this file is used to display outline in ECB
+                            method-info buffer and to support navigation to
+                            declaration via M-.
+        * haxe-etags-program - the program for generating TAGS files (normally
+                               this is either etags or ctags)
+        * haxe-project-generator - The program used to generate contents of your
+                                   project from templates. For advanced info
+                                   read the documentation in the code.
+        * haxe-template-extension - File extension used in project templates
+                                    to distinguish between files copied as is
+                                    into the new project directory from files
+                                    that require pre-processing when moved.
+
+        Few words about flymake - it may poll the server too often for error
+        checks. I've added something that should prevent it by invoking it only
+        on save events. You may want to look into haxe-mode.el
+        haxe-toggle-flymake-inbetween-saves function to change that behavior.
+
+USAGE:
+        This editing mode is based on C editing mode, so most of the key bindings
+        apply. I will cover only the ones added here:
+        . - invokes auto-completion.
+        ( - invokes hinting for function arguments.
+        C-c h - invokes electric help (this currently only usable for displaying
+                the content of strings and integer constants, but will be more
+                usable later.
+
+        To create new project (for now only SWF target is supported):
+        M-x haxe-create-project-from-directory src dst
+        Where `src' is the source of the templates for the project and `dst' is the
+        destination (where you want to create the project).
+
+        M-x haxe-start-waiting-server
+        Will (re)start the compilation server, if the old instance dies.

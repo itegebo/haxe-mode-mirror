@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# Below are some variables that will be populated prior to running this script:
+#
+# $src - the source directory (ending with slash) of the temlates for this project
+# $dst - the destination directory (ending with slash) of the project being created.
+# $project - the name of the project being created
+
+cd "$dst"
+echo "Copied a template from: \"$src\"
+to: \"$dst\"
+This is the project: \"$project\"" > ./test.log

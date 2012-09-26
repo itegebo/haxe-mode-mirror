@@ -1,0 +1,22 @@
+# -*- mode: snippet -*-
+# name: file
+# --
+package ;
+
+import flash.display.Sprite;
+import flash.Lib;
+
+class ${1:Main} extends Sprite {
+
+function new() { super(); }
+
+function init() {
+$0
+}
+
+static function main() {
+var o = new $1();
+Lib.current.addChild(o);
+o.init();
+}
+}
