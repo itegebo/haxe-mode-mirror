@@ -73,6 +73,7 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'cl))
 (require 'cc-mode)
 (require 'cc-fonts)
 (require 'cc-langs)
@@ -85,6 +86,7 @@
 (require 'haxe-help)
 (require 'haxe-project)
 (require 'haxe-completion)
+(require 'haxe-log)
 ;; ------------------- my change -------------------------------------
 
 ;; The language constants are needed when compiling.
@@ -268,10 +270,13 @@
 ;; Fontification degrees.
 (defconst haxe-font-lock-keywords-1 (c-lang-const c-matchers-1 haxe)
   "Minimal highlighting for haxe mode.")
+
 (defconst haxe-font-lock-keywords-2 (c-lang-const c-matchers-2 haxe)
   "Fast normal highlighting for haxe mode.")
+
 (defconst haxe-font-lock-keywords-3 (c-lang-const c-matchers-3 haxe)
   "Accurate normal highlighting for haxe mode.")
+
 (defvar haxe-font-lock-keywords haxe-font-lock-keywords-3
   "Default expressions to highlight in haxe mode.")
 
@@ -308,63 +313,15 @@
 
 ;; ------------------- My edits --------------------------------------------
 
-(defcustom haxe-compiler "haxe"
-  "The path to HaXe compiler"
-  :type 'string)
-
-(defcustom haxe-server-host "127.0.0.1"
-  "The host to run HaXe compiler daemon"
-  :type 'string)
-
-(defcustom haxe-server-port 1257
-  "The default port to connect to on HaXe compiler daemon"
-  :type 'integer)
-
 ;; TODO: we need to use when generating TAGS, but before we
 ;; can use it, we need a good way to generate TAGS for HaXe code
 (defcustom haxe-std-library nil
   "The location of HaXe built-ins, it is needed for TAGS generation"
-  :type 'string)
-
-(defcustom haxe-log-level 3
-  "This variable controls verbosity of log messages written by `haxe-mode'
-to `*Messages*' buffer"
-  :type 'integer)
-
-(defvar haxe-eol "\n"
-  "The string used as line separator when building commands to HaXe compiler")
-
-(defvar haxe-compiler-process "haxe-compiler"
-  "The name given to the HaXe compiler process when started by automake
-or auto-completion")
-
-(defvar haxe-network-process nil
-  "The reference to the network connection opened to HaXe complier")
-
-(defvar last-compiler-response nil
-  "This variable is updated by the filter function that reads from the 
-connection to HaXe compiler, it's content is the last response received")
-
-(defvar received-status 2
-  "HaXe compiler will send large completion results in chunks, in order to
-accumulate all received chunks we need sort of a state-machine. This variable
-holds the status of receiving the info.
-	0 - received first chunk,
-	1 - received last chunk,
-	2 - receiving junk (error messages etc).")
+  :type 'string :group 'haxe-mode)
 
 (defvar old-flymake-after-change-function nil
   "Stores the function flymake uses to update after code change
 once we turn it off")
-
-(defvar response-terminator "</list>\n"
-  "This variable is set according to the kind of completion we request
-it may be \"</list>\n\" or \"</type>\n\" (first is for dot completion
-the second is for paren hint")
-
-(defvar haxe-network-process-buffer "haxe-network-process-buffer"
-  "The buffer to hold the network process connecting to HaXe compiler server.
-This is needed because otherwise the process get's lost somehow D:")
 
 (defun haxe-flymake-install ()
   "Install flymake stuff for HaXe files."
@@ -443,18 +400,6 @@ directory"
     (when pos
       (setq project-root (substring current 0 pos)))))
 
-(defun haxe-start-waiting-server ()
-  "Starts HaXe `haxe-compiler' on `haxe-server-host':`haxe-server-port'
-with \"--wait\" for the future requests made by autocompletion
-or flymake"
-  (interactive)
-  (unless (get-buffer-process "*haxe-waiting-server*")
-    (shell-command
-     (concat haxe-compiler " --wait "
-	     haxe-server-host ":"
-	     (number-to-string haxe-server-port) "&")
-     "*haxe-waiting-server*")))
-
 (defun haxe-listen-filter (proc input)
   "Is called by the running HaXe server to report events, if any."
   ;; We are only interested in recording the completion XMLs
@@ -504,86 +449,9 @@ But chosen a bad time to do it" input)
 				  (- (length response-terminator)))
 		       response-terminator))))
 
-(defun haxe-connect-to-compiler-server (&optional wait)
-  "Starts HaXe compilations server and connects to it.
-If WAIT is NIL, will try to connect immediately, otherwise will
-wait WAIT seconds."
-  (interactive)
-  (haxe-start-waiting-server)
-  (unless wait (setq wait 0))
-  (let ((old-proc (get-process haxe-compiler-process)))
-    (if (and old-proc (equal (process-status old-proc) 'open))
-	(setq haxe-network-process old-proc)
-      (run-at-time
-       wait nil
-       #'(lambda ()
-	   (haxe-log 3 "Trying to connect to HaXe compiler on %s:%s"
-		     haxe-server-host haxe-server-port)
-	   (setq haxe-network-process
-		 (make-network-process
-		  :name haxe-compiler-process
-		  :family 'ipv4
-		  :host haxe-server-host
-		  :service haxe-server-port
-		  :buffer haxe-network-process-buffer
-		  :filter #'haxe-listen-filter))
-	   (haxe-log 3 "Connected to HaXe compiler"))))))
-
-(defun haxe-log (level mask &rest args)
-  "Sends messages to `*Messages*' buffer. If LEVEL is less or equal to
-`haxe-log-level' the message is printed"
-  (when (>= haxe-log-level level)
-    (apply #'message (cons mask args))))
-
 ;; ----------------------------------------------------------------------------
 ;; Ritchie Turner (blackdog@cloudshift.cl)
 ;; remake of https://github.com/cloudshift/hx-emacs/blob/master/hxc-complete.el
-
-(defun haxe-package ()
-  "Get the name of the package of the current file"
-  ;; TODO This is a little too naive, we have to also check that the face of the
-  ;; word package is also a proper face.
-  (let ((bs (buffer-string)))
-    (when (string-match "package\\s-\\(.*?\\);" bs)
-      (match-string 1 bs))))
-
-(defun haxe-build-cwd ()
-  "Builds a part of command for HaXe compiler to change current directory to
-the `project-root'."
-  (list "--cwd"
-	(concat (expand-file-name (resolve-project-root)) "/src")))
-
-(defun haxe-conditional-comps ()
-  "Reads conditional compilation settings from `build-hxml'"
-  (let ((bs (buffer-string)))
-       (when (string-match "hxc:\\s-\\(.*\\)" bs)
-	 (match-string 1 bs))))
-
-(defun haxe-read-hxml ()
-  "Reads the contents of `project-build-command'
-SEPARATOR is used to delimit lines read from the file"
-  (with-temp-buffer
-    (insert-file
-     (if (and build-hxml (resolve-project-root))
-         (concat (file-name-as-directory (resolve-project-root)) build-hxml)
-       (error "You need to specify `project-root' and `build-hxml'")))
-    (delete-non-matching-lines "^-cp\\|^-lib\\|^-swf")
-    (let (result pos)
-      (dolist (i (delete-dups (split-string (buffer-string) haxe-eol)))
-	(setq pos (position " " i))
-	(if pos 
-	    (setq result (cons (substring i 0 pos) result)
-		  result (cons (substring i pos) result))
-	  (setq result (cons i result))))
-      (setq project-build-command (mapconcat #'identity result " "))
-      result)))
-    
-        
-(defun haxe-class-name (pkg)
-  "Generates the fully qualified name of the HaXe class"
-  (concat (when pkg (concat pkg "."))
-          (file-name-nondirectory
-           (file-name-sans-extension (buffer-name)))))
 
 (defun haxe-build-flymake-list (source)
   "Builds the command run by flymake on the current buffer"
@@ -669,10 +537,10 @@ tag information for FILE"
 --regex='/[ \\t]*\\(\\(public\\|private\\|static\\|override\\|inline\\)[ \\t]\\)+function[ \\t]\\([^ \\t(]+\\)/\\3/' \\
 --regex='/[ \\t]*\\(\\(public\\|private\\|static\\|override\\|inline\\)[ \\t]\\)+var[ \\t]\\([^ \\t:=]+\\)/\\3/' \\
 -o - " (expand-file-name file)) "*haxe-tags-parser*")
-      (beginning-of-buffer)
-      (next-line)
+      (goto-char (point-min))
+      (forward-line)
       (while (not (eobp))
-	(next-line)
+	(forward-line)
 	(beginning-of-line-text 1)
 	(setq type nil)
 	(while (not (eolp))
@@ -695,7 +563,7 @@ tag information for FILE"
 	      (setq newlist
 		    (cons (cons
 			   (concat type " " word)
-			   (1+ (string-to-int (thing-at-point 'symbol)))) newlist))
+			   (1+ (string-to-number (thing-at-point 'symbol)))) newlist))
 	      (move-end-of-line nil)))
 	  (forward-word)))
       (if speedbar-sort-tags
@@ -704,15 +572,16 @@ tag information for FILE"
 
 (defun haxe-calculate-offset-from-vector (y x string)
   (let ((moved 0) current)
-    (while (and (not (zerop x) (not zerop y)))
+    (while (and (not (zerop x)) (not (zerop y)))
       (if (not (zerop y))
 	  (when (position current "\r\n") (decf y))
 	(return (+ moved x)))
       (incf moved))))
-       
-(defun haxe-generate-import (for-type)
-  (interactive (list (if for-type for-type (haxe-suggest-type))))
-  (save-excursion ))
+
+;; Commenting to pass compilation w/o warnings
+;; (defun haxe-generate-import (for-type)
+;;   (interactive (list (if for-type for-type (haxe-suggest-type))))
+;;   (save-excursion ))
 
 ;; --------------- end my changes ---------------------------------------------
 
@@ -733,7 +602,7 @@ Key bindings:
   (kill-all-local-variables)
   (c-initialize-cc-mode t)
   (set-syntax-table haxe-mode-syntax-table)
-  (setq major-mode 'haxe-mode
+  (setq major-mode #'haxe-mode
         mode-name "haXe"
         local-abbrev-table haxe-mode-abbrev-table
         abbrev-mode t)
@@ -762,8 +631,11 @@ Key bindings:
   (flymake-mode)
   (unless old-flymake-after-change-function
     (haxe-toggle-flymake-inbetween-saves))
-  (auto-complete-mode 1)
-  (add-hook 'kill-buffer-hook #'haxe-kill-network-process)
+  (when (fboundp 'auto-complete-mode)
+    ;; TODO: Also need to disable the autocompletion on our side if
+    ;; auto-complete is not installed
+    (auto-complete-mode 1))
+  (add-hook #'kill-buffer-hook #'haxe-kill-network-process)
   (haxe-try-set-ecb-outlines)
   ;; ---------------------------- end my changes ----------------------
   (run-hooks 'c-mode-common-hook 'haxe-mode-hook)

@@ -34,7 +34,9 @@
 
 ;;; Code:
 
-(require 'srecode)
+(eval-when-compile (require 'cl))
+(require 'haxe-log)
+(require 'srecode)                      ; not sure about this one
 
 (defvar build-hxml "build.hxml"
   "The name of the nxml file to build the project")
@@ -53,18 +55,18 @@ if not specified, the script searches for it in `project-root'/`build-hxml'")
 
 (defcustom hxtags-location "~/programs/haxe-for-emacs/haxe-mode/hxtags.sh"
   "The program for generating TAGS files"
-  :type 'string)
+  :type 'string :group 'haxe-mode)
 
 (defcustom haxe-project-kinds '("swf")
   "The kinds of supported projects, they should go with compiler target platforms
 but aren't limited to it. This should correspond to the name of the directory inside
 project-templates directory"
-  :type 'list)
+  :type 'list :group 'haxe-mode)
 
 (defcustom haxe-templates "~/programs/hx-emacs/project-templates/"
   "The location of project templates (this would be the directory named
 project-templates under the directory where you installed haxe-mode."
-  :type 'string)
+  :type 'string :group 'haxe-mode)
 
 (defvar haxe-project-type-table (make-hash-table :test #'equal)
   "This variable contains references to all classes in currently opened project
@@ -76,7 +78,7 @@ is declared.")
 (defcustom haxe-etags-program "etags"
   "This is the path (or alias) of the etags program. On Linux it is usually preinstalled
 and globally available. On Windows you would probably need to install it."
-  :type 'string)
+  :type 'string :group 'haxe-mode)
 
 (defcustom haxe-project-generator "generator"
   "This is the name of the program to search for in the project template directory
@@ -102,12 +104,12 @@ The process of creating the project has 2 stages:
 		$project - the name of the project being created.
 		(more to come)
 "
-  :type 'string)
+  :type 'string :group 'haxe-mode)
 
 (defcustom haxe-template-extension ".tpl"
   "The extension of the template files in the project, the contents of templates
 is red by Emacs and translated using SRecode templates engine."
-  :type 'string)
+  :type 'string :group 'haxe-mode)
 
 ;; (declare-function srecode-create-dictionary "srecode/dictionary")
 ;; (declare-function srecode-dictionary-set-value "srecode/dictionary")
@@ -118,61 +120,63 @@ is red by Emacs and translated using SRecode templates engine."
 ;; (declare-function srecode-resolve-arguments "srecode/insert")
 ;; (declare-function srecode-map-update-map "srecode/map")
 
-;;;###autoload
-(defun haxe-srecode-setup ()
-  "Update various paths to get SRecode to identify our macros."
-  (let* ((lib (locate-library "haxe-project.el" t))
-	 (haxedir (file-name-directory lib))
-	 (tmpdir (file-name-as-directory
-		  (expand-file-name "templates" haxeedir))))
-    (when (not tmpdir)
-      (error "Unable to location HaXe Templates directory"))
+;; This doesn't work, only confuses the compilation
 
-    ;; Rig up the map.
-    (require 'srecode-map)
-    (add-to-list 'srecode-map-load-path tmpdir)
-    (srecode-map-update-map t)
+;;;;###autoload
+;; (defun haxe-srecode-setup ()
+;;   "Update various paths to get SRecode to identify our macros."
+;;   (let* ((lib (locate-library "haxe-project.el" t))
+;; 	 (haxedir (file-name-directory lib))
+;; 	 (tmpdir (file-name-as-directory
+;; 		  (expand-file-name "templates" haxeedir))))
+;;     (when (not tmpdir)
+;;       (error "Unable to location HaXe Templates directory"))
+
+;;     ;; Rig up the map.
+;;     (require 'srecode-map)
+;;     (add-to-list 'srecode-map-load-path tmpdir)
+;;     (srecode-map-update-map t)
     
-    ;; (srecode-load-tables-for-mode 'autoconf-mode)
-    ;; (srecode-load-tables-for-mode 'autoconf-mode 'ede)
-    ))
+;;     ;; (srecode-load-tables-for-mode 'autoconf-mode)
+;;     ;; (srecode-load-tables-for-mode 'autoconf-mode 'ede)
+;;     ))
 
-(defmacro haxe-srecode-insert-with-dictionary (template &rest forms)
-  "Insert TEMPLATE after executing FORMS with a dictionary.
-TEMPLATE should specify a context by using a string format of:
-  context:templatename
-Locally binds the variable DICT to a dictionary which can be
-updated in FORMS."
-  `(let* ((dict (srecode-create-dictionary))
-	  (temp (srecode-template-get-table
-		 (srecode-table)
-		 ,template nil 'haxe-tpl)))
-     (when (not temp)
-       (error "HaXe template %s for %s not found!"
-	      ,template major-mode))
-     (srecode-resolve-arguments temp dict)
+;; (defmacro haxe-srecode-insert-with-dictionary (template &rest forms)
+;;   "Insert TEMPLATE after executing FORMS with a dictionary.
+;; TEMPLATE should specify a context by using a string format of:
+;;   context:templatename
+;; Locally binds the variable DICT to a dictionary which can be
+;; updated in FORMS."
+;;   `(let* ((dict (srecode-create-dictionary))
+;; 	  (temp (srecode-template-get-table
+;; 		 (srecode-table)
+;; 		 ,template nil 'haxe-tpl)))
+;;      (when (not temp)
+;;        (error "HaXe template %s for %s not found!"
+;; 	      ,template major-mode))
+;;      (srecode-resolve-arguments temp dict)
 
-     ;; Now execute forms for updating DICT.
-     (progn ,@forms)
-     (srecode-insert-fcn temp dict)))
+;;      ;; Now execute forms for updating DICT.
+;;      (progn ,@forms)
+;;      (srecode-insert-fcn temp dict)))
 
-;;;###autoload
-(defun haxe-srecode-insert (template &rest dictionary-entries)
-  "Insert at the current point TEMPLATE.
-TEMPLATE should specify a context by using a string format of:
-  context:templatename
-Add DICTIONARY-ENTRIES into the dictionary before insertion.
-Note: Just like `srecode-insert', but templates found in 'ede app (what is this?)."
-  (haxe-srecode-insert-with-dictionary
-   template
-   ;; Add in optional dictionary entries.
-   (while dictionary-entries
-     (srecode-dictionary-set-value
-      dict
-      (car dictionary-entries)
-      (cadr dictionary-entries))
-     (setq dictionary-entries
-	   (cddr dictionary-entries)))))
+;; ;;;###autoload
+;; (defun haxe-srecode-insert (template &rest dictionary-entries)
+;;   "Insert at the current point TEMPLATE.
+;; TEMPLATE should specify a context by using a string format of:
+;;   context:templatename
+;; Add DICTIONARY-ENTRIES into the dictionary before insertion.
+;; Note: Just like `srecode-insert', but templates found in 'ede app (what is this?)."
+;;   (haxe-srecode-insert-with-dictionary
+;;    template
+;;    ;; Add in optional dictionary entries.
+;;    (while dictionary-entries
+;;      (srecode-dictionary-set-value
+;;       dict
+;;       (car dictionary-entries)
+;;       (cadr dictionary-entries))
+;;      (setq dictionary-entries
+;; 	   (cddr dictionary-entries)))))
 
 (defun resolve-project-root ()
   "Used at the time of building the commands involving currnet project directory
@@ -255,7 +259,7 @@ by running `haxe-create-project-from-directory'."
                    (make-directory (haxe-file-name-to-directory new-file) t)
                    (haxe-create-project-from-directory
                     (haxe-file-name-to-directory x)
-                    (haxe-file-name-to-directory new-file) t))
+                    (haxe-file-name-to-directory new-file)))
                (let ((x-length (length x))
                      (ext-lengt (length haxe-template-extension)))
                  (if (and (> x-length ext-lengt)
@@ -270,9 +274,10 @@ by running `haxe-create-project-from-directory'."
      (directory-files src t))))
 
 (defun haxe-file-name-to-directory (file-name)
-  (if (char-equal (aref file-name (1- (length file-name))) directory-sep-char)
+  ;; They deprecated and now removed directory-sep-char :( wtf?
+  (if (char-equal (aref file-name (1- (length file-name))) ?\/)
       file-name
-      (concat file-name (char-to-string directory-sep-char))))
+      (concat file-name (char-to-string ?\/))))
 
 (provide 'haxe-project)
 

@@ -33,14 +33,12 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'cl))
 (defcustom haxe-help-location "~/programs/haxe-for-emacs/haxe-mode/bin/"
   "The location of HaXe language basic help info pages"
-  :type 'string)
+  :type 'string :group 'haxe-mode)
 
-(defstruct haxe-help-item
-  type
-  string
-  face)
+(defstruct haxe-help-item type string face)
 
 (defun haxe-string-at-point ()
   (with-output-to-string
