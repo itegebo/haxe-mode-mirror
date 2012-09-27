@@ -35,6 +35,7 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
+(require 'cl)
 (require 'haxe-log)
 (require 'haxe-project)
 (require 'xml)
@@ -703,5 +704,9 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 
 (provide 'haxe-completion)
+
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
 
 ;;; haxe-completion.el ends here.

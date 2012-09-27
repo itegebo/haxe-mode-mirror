@@ -17,8 +17,8 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;; ------------------------------------------------------------------------
 
-;; This program is an addition to haxe-mode.el to add auto-completion support
-;; to HaXe projects. It requires auto-complete library to function.
+;; This program is an addition to haxe-mode.el it defines logging
+;; in haxe-mode
 ;; (http://cx4a.org/software/auto-complete/)
 
 ;; haxe-log is NOT part of GNU Emacs.
@@ -46,5 +46,9 @@ to `*Messages*' buffer"
     (apply #'message (cons mask args))))
 
 (provide 'haxe-log)
+
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
 
 ;;; haxe-log.el ends here.

@@ -34,6 +34,8 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
+(require 'cl)
+
 (defcustom haxe-help-location "~/programs/haxe-for-emacs/haxe-mode/bin/"
   "The location of HaXe language basic help info pages"
   :type 'string :group 'haxe-mode)
@@ -184,5 +186,9 @@
 	(buffer-name)))
 
 (provide 'haxe-help)
+
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
 
 ;;; haxe-help.el ends here.

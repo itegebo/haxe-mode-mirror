@@ -281,4 +281,8 @@ by running `haxe-create-project-from-directory'."
 
 (provide 'haxe-project)
 
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
+
 ;;; haxe-project.el ends here.

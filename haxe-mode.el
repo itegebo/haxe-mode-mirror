@@ -566,7 +566,8 @@ tag information for FILE"
 			   (1+ (string-to-number (thing-at-point 'symbol)))) newlist))
 	      (move-end-of-line nil)))
 	  (forward-word)))
-      (if speedbar-sort-tags
+      (if (and (boundp 'speedbar-sort-tags)
+               speedbar-sort-tags)
 	  (sort newlist (lambda (a b) (string< (car a) (car b))))
 	(reverse newlist)))))
 
@@ -602,7 +603,7 @@ Key bindings:
   (kill-all-local-variables)
   (c-initialize-cc-mode t)
   (set-syntax-table haxe-mode-syntax-table)
-  (setq major-mode #'haxe-mode
+  (setq major-mode 'haxe-mode
         mode-name "haXe"
         local-abbrev-table haxe-mode-abbrev-table
         abbrev-mode t)
@@ -635,12 +636,16 @@ Key bindings:
     ;; TODO: Also need to disable the autocompletion on our side if
     ;; auto-complete is not installed
     (auto-complete-mode 1))
-  (add-hook #'kill-buffer-hook #'haxe-kill-network-process)
+  (add-hook 'kill-buffer-hook 'haxe-kill-network-process)
   (haxe-try-set-ecb-outlines)
   ;; ---------------------------- end my changes ----------------------
   (run-hooks 'c-mode-common-hook 'haxe-mode-hook)
   (c-update-modeline))
 
 (provide 'haxe-mode)
+
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
 
 ;;; haxe-mode.el ends here.
