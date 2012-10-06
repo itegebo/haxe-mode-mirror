@@ -318,6 +318,52 @@ Returns the list of removed conses."
 	      processed (cdr processed))))
     removed))
 
+(defun haxe-levenstain (in-a in-b &optional dist)
+  "Finds Levenstain distance from IN-A to IN-B"
+  (when (not dist) (setf dist 0))
+  (let (temp-string replaced current-char)
+    (cond
+     ((string= in-a in-b) dist)
+     ((< (length in-a) (length in-b))
+      (setf temp-string (make-string (1- (length in-b)) ?\ ))
+      (dotimes (i (length temp-string)
+                  (haxe-levenstain in-a temp-string (1+ dist)))
+        (setf current-char (aref in-b i))
+        (cond
+         ((and (not replaced) (< i (length in-a)))
+          (if (char-equal current-char (aref in-a i))
+              (setf (aref temp-string i) current-char)
+            (setf replaced t)))
+         ((not replaced) (setf replaced t))
+         (t (setf (aref temp-string i) current-char)))))
+     ((< (length in-b) (length in-a))
+      (haxe-levenstain in-b in-a dist))
+     (t (setf temp-string (make-string (length in-b) ?\ ))
+        (dotimes (i (length temp-string)
+                    (haxe-levenstain in-a temp-string (1+ dist)))
+          (setf current-char (aref in-b i))
+          (if (not replaced)
+              (if (char-equal current-char (aref in-a i))
+                  (setf (aref temp-string i) current-char)
+                (setf replaced t
+                      (aref temp-string i) (aref in-a i)))
+            (setf (aref temp-string i) current-char)))))))
+
+(defun fliter-candidates-levenstain (candidates)
+  "Filters the candidates by establishing Levenstein distance from
+the `haxe-string-to-complete' to the candidate"
+  (let ((hash (make-hash-table))
+        (max-distance 0)
+        current result)
+    (dolist (i candidates
+               (dotimes (j max-distance result)
+                 (setf current (gethash hash j))
+                 (when current
+                   (setf result (append result current)))))
+      (setf current (haxe-levenstain haxe-string-to-complete i)
+            max-distance (max max-distance current)
+            (gethash hash current) (cons i (gethash hash current))))))
+
 (defun filter-candidates-exact (candidates)
   "Filters CANDIDATES list by matching the exact beginning of every name
 to `haxe-string-to-complete'"
@@ -663,6 +709,7 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
 	(setq last-space (position current " \t"))))))
 
 (defun trim-string (input &rest characters)
+  ;; FIXME: (trim-string " x ") => ""
   "Removes blanks and CHARACTERS from INPUT on its left and on its right"
   (if input
       (let ((start 0)
