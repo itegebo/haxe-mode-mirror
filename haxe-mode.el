@@ -472,6 +472,9 @@ when autocompletion is in process"
     (when old-flymake-after-change-function
 	(funcall old-flymake-after-change-function start stop len))))
 
+;; TODO: All this nonsense has to be replaced with defadvice.
+;; File: elisp.info,  Node: Simple Advice
+
 (defun haxe-toggle-flymake-inbetween-saves ()
   "Toggles flymake updates made after the code is changed"
   (interactive)
