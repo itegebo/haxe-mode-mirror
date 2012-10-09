@@ -111,9 +111,9 @@
 (c-lang-defconst c-after-id-concat-ops
   haxe nil)
 
-;; Conditional compilation prefix.
+;; Conditional compilation and metadata prefices.
 (c-lang-defconst c-opt-cpp-prefix
-  haxe "\\s *#")
+  haxe "\\s *#" haxe "\\s *@:")
 
 ;; No strings in conditional compilation.
 (c-lang-defconst c-cpp-message-directives
@@ -176,7 +176,9 @@
          ;; Exception.
          (prefix "throw")
          ;; Sequence.
-         (left-assoc ",")))
+         (left-assoc ",")
+         ;; metadata (macros)
+         (prefix "@:")))
 
 ;; No overloading.
 (c-lang-defconst c-overloadable-operators
@@ -303,6 +305,8 @@
   (setq haxe-mode-map (c-make-inherited-keymap)))
 
 (add-to-list 'auto-mode-alist '("\\.hx\\'" . haxe-mode))
+
+(make-variable-buffer-local 'compile-command)
 
 ;; Tell compilation-mode how to parse error messages.  You need to set
 ;; compilation-error-screen-columns to nil to get the right
@@ -624,6 +628,7 @@ Key bindings:
   ;; For some reason, comment-start-skip has to be set manually.
   (setq comment-start-skip "\\(//+\\|/\\*+\\)\\s *")
   ;; --------------------------- my changes ---------------------------
+  
   (c-set-offset 'substatement-open 0)
   (haxe-connect-to-compiler-server 1)
   (local-set-key "." haxe-completion-method)
@@ -632,6 +637,8 @@ Key bindings:
   (setq flymake-log-level 0)
   (haxe-flymake-install)
   (haxe-identify-project-root)
+  (setq compile-command
+        (concat haxe-compiler " " (resolve-project-root) build-hxml))
   (flymake-mode)
   (unless old-flymake-after-change-function
     (haxe-toggle-flymake-inbetween-saves))

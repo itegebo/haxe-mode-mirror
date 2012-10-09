@@ -14,7 +14,7 @@
         ("bin/index.html" 1 1)
         ("bin/expressInstall.swf" 1 1)
         ("bin/js/swfobject.js" 1 1)
-        ("src/Main.hx" 1 1)))
+        ("src/$package/$entry_point.hx" 1 1)))
 
 (setq prj-curfile nil)
 

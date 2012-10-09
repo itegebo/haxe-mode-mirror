@@ -53,7 +53,8 @@ This is the best I could do for now")
   "This is the command passed to HaXe compiler when the project is compiled
 if not specified, the script searches for it in `project-root'/`build-hxml'")
 
-(defcustom hxtags-location "~/programs/haxe-for-emacs/haxe-mode/hxtags.sh"
+(defcustom hxtags-location
+  (concat (file-name-directory load-file-name) "/hxtags.sh")
   "The program for generating TAGS files"
   :type 'string :group 'haxe-mode)
 
@@ -63,7 +64,8 @@ but aren't limited to it. This should correspond to the name of the directory in
 project-templates directory"
   :type 'list :group 'haxe-mode)
 
-(defcustom haxe-templates "~/programs/hx-emacs/project-templates/"
+(defcustom haxe-templates
+  (concat (file-name-directory load-file-name) "/project-templates/")
   "The location of project templates (this would be the directory named
 project-templates under the directory where you installed haxe-mode."
   :type 'string :group 'haxe-mode)

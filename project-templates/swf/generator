@@ -1,12 +1,109 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
 #
 # Below are some variables that will be populated prior to running this script:
 #
-# $src - the source directory (ending with slash) of the temlates for this project
-# $dst - the destination directory (ending with slash) of the project being created.
+# $source - the source directory (ending with slash) of the temlates for this project
+# $destination - the destination directory (ending with slash) of the project being created.
 # $project - the name of the project being created
 
-cd "$dst"
-echo "Copied a template from: \"$src\"
-to: \"$dst\"
-This is the project: \"$project\"" > ./test.log
+from optparse import OptionParser
+from os import path
+from string import Template
+import datetime
+import shutil
+import os
+import pwd
+
+parser = OptionParser()
+parser.add_option(
+    '-s', '--source', dest = 'source',
+    help = 'The source directory for templates to generate this project.')
+
+parser.add_option(
+    '-d', '--destination',
+    dest = 'destination',
+    help = 'The directory where the project is being created.')
+
+parser.add_option(
+    '-n', '--name-project',
+    dest = 'project',
+    help = 'The name of the project being created.')
+
+parser.add_option(
+    '-p', '--package',
+    dest = 'package',
+    default = '',
+    help = 'The name of the package to place the entry point.')
+
+parser.add_option(
+    '-e', '--entry-point',
+    dest = 'entry_point',
+    default = 'Main',
+    help = 'The name of the class file containing the entry point.')
+
+parser.add_option(
+    '-a', '--author',
+    dest = 'author',
+    default = pwd.getpwuid(os.getuid()).pw_name,
+    help = 'The author of the project.')
+
+(options, args) = parser.parse_args()
+
+now =  datetime.datetime.ctime(datetime.datetime.now())
+log_file = open(path.join(options.destination, 'generated.log'), 'w')
+generator = path.abspath(__file__)
+log_file.write(
+    '''
+Copied a template from: "%s"
+to: "%s"
+This is the project: "%s".
+The main class is: "%s"
+in package: "%s".
+''' % (options.source,
+       options.destination,
+       options.project,
+       options.entry_point,
+       options.package))
+
+def substitute_path(template):
+    return template.substitute(
+        source = options.source,
+        project = options.project,
+        destination = options.destination,
+        entry_point = options.entry_point,
+        package = options.package,
+        author = options.author,
+        date = now,
+        generator = generator)
+
+def move_by_template(files, directory, replace_content = False):
+    for f in files:
+        t = Template(f)
+        target = path.join(directory, f)
+        dst = path.join(directory, substitute_path(t))
+        if dst != target:
+            log_file.write('Moving file "%s" to "%s"\n' % (target, dst))
+            shutil.move(target, dst)
+        if replace_content and f.rsplit('.')[1] in ['hx', 'xml', 'txt', 'hxml', 'cfg']:
+            replace_file = open(dst, 'r+')
+            # This may become a problem for large files, but
+            # hopefuly, there won't be very large tempaltes
+            new_content = substitute_path(Template(replace_file.read()))
+            replace_file.truncate(0)
+            replace_file.seek(0)
+            replace_file.write(new_content)
+            replace_file.close()
+
+def move_recursively(directory):
+    for (dirpath, dirnames, filenames) in os.walk(directory):
+        move_by_template(filenames or [], directory, True)
+        move_by_template(dirnames or [], directory)
+        break
+    for (dirpath, dirnames, filenames) in os.walk(directory):
+        for d in dirnames:
+            move_recursively(path.abspath(path.join(directory, d)))
+        break
+
+move_recursively(options.destination)
+
+log_file.close()
