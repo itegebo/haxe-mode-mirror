@@ -469,29 +469,35 @@ But chosen a bad time to do it" input)
 	(append conditionals result)
       result)))
 
-(defun haxe-flymake-change-function (start stop len)
-  "Substitute for `flymake-after-change-function' to prevent it from updating
-when autocompletion is in process"
-  (unless (= 2 received-status)
-    (when old-flymake-after-change-function
-	(funcall old-flymake-after-change-function start stop len))))
+(defadvice flymake-after-change-function
+  (around haxe-override-flymake-change (start stop len))
+  "Overrides `flymake-after-change-function' to prevent it from running
+when autocompletion is in progress"
+  (unless (= 2 received-status) ad-do-it))
 
-;; TODO: All this nonsense has to be replaced with defadvice.
-;; File: elisp.info,  Node: Simple Advice
+;; (defun haxe-flymake-change-function (start stop len)
+;;   "Substitute for `flymake-after-change-function' to prevent it from updating
+;; when autocompletion is in process"
+;;   (unless (= 2 received-status)
+;;     (when old-flymake-after-change-function
+;; 	(funcall old-flymake-after-change-function start stop len))))
 
-(defun haxe-toggle-flymake-inbetween-saves ()
-  "Toggles flymake updates made after the code is changed"
-  (interactive)
-  (if old-flymake-after-change-function
-      (progn
-	(haxe-log 3 "restoring flymake-after-change-function")
-	(fset #'flymake-after-change-function old-flymake-after-change-function)
-	(setq old-flymake-after-change-function nil))
-    (progn
-      (haxe-log 3 "disabling flymake-after-change-function")
-      (setq old-flymake-after-change-function #'flymake-after-change-function)
-      (make-local-variable #'flymake-after-change-function)
-      (fset #'flymake-after-change-function #'haxe-flymake-change-function))))
+;; ;; TODO: All this nonsense has to be replaced with defadvice.
+;; ;; File: elisp.info,  Node: Simple Advice
+
+;; (defun haxe-toggle-flymake-inbetween-saves ()
+;;   "Toggles flymake updates made after the code is changed"
+;;   (interactive)
+;;   (if old-flymake-after-change-function
+;;       (progn
+;; 	(haxe-log 3 "restoring flymake-after-change-function")
+;; 	(fset #'flymake-after-change-function old-flymake-after-change-function)
+;; 	(setq old-flymake-after-change-function nil))
+;;     (progn
+;;       (haxe-log 3 "disabling flymake-after-change-function")
+;;       (setq old-flymake-after-change-function #'flymake-after-change-function)
+;;       (make-local-variable #'flymake-after-change-function)
+;;       (fset #'flymake-after-change-function #'haxe-flymake-change-function))))
 
 (defun haxe-kill-network-process ()
   "Kill connection to HaXe compiler server and Flymake process in this buffer"
@@ -515,6 +521,7 @@ easier way to do the same thing. If you find it - let me know."
   (when (boundp 'ecb-non-semantic-parsing-function)
     (haxe-log 0 "Enabling ECB outline support")
     (make-local-variable #'speedbar-fetch-dynamic-imenu)
+    ;; TODO: This has to be buffer-local
     (fset #'speedbar-fetch-dynamic-imenu #'haxe-parse-tags)))
 
     ;; speedbar-insert-imenu-list
@@ -640,8 +647,9 @@ Key bindings:
   (setq compile-command
         (concat haxe-compiler " " (resolve-project-root) build-hxml))
   (flymake-mode)
-  (unless old-flymake-after-change-function
-    (haxe-toggle-flymake-inbetween-saves))
+  ;; (unless old-flymake-after-change-function
+  ;;   (haxe-toggle-flymake-inbetween-saves))
+  (ad-activate 'flymake-after-change-function)
   (when (fboundp 'auto-complete-mode)
     ;; TODO: Also need to disable the autocompletion on our side if
     ;; auto-complete is not installed

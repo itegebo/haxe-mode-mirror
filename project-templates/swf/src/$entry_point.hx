@@ -1,6 +1,6 @@
 /*
   Thsi file was generated from template at $source
-  by $generarot. If you want to change the way templates
+  by $generator. If you want to change the way templates
   are generated, edit the generator file, alternatively,
   you can edit the template or create an entirely new project
   template.

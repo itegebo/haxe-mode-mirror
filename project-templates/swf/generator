@@ -9,6 +9,7 @@
 from optparse import OptionParser
 from os import path
 from string import Template
+from distutils import dir_util
 import datetime
 import shutil
 import os
@@ -47,23 +48,54 @@ parser.add_option(
     default = pwd.getpwuid(os.getuid()).pw_name,
     help = 'The author of the project.')
 
+parser.add_option(
+    '-l', '--log',
+    dest = 'log',
+    default = 'generator.log',
+    help = '''Send logging information to output and / or log file.
+The default values is "generator.log" meaning that the generator
+will store info in the generator.log file. Other possible values
+include:
+  +file.name meaning to both print the loggin on standard
+output and into the file "file.name".
+  + meaning to print the logging info on standard output, but
+not printing it into log file.
+  - will neither create the log, nor print information to the
+standard output.''')
+
 (options, args) = parser.parse_args()
 
+def log(pattern, *args):
+    mode = options.log[0]
+    if mode == '+':
+        print pattern % args
+    log_file = options.log[1:]
+    if log_file:
+        log_handle = open(path.join(options.destination, log_file), 'a')
+        log_handle.write(pattern % args)
+        log_handle.close()
+        
+
 now =  datetime.datetime.ctime(datetime.datetime.now())
-log_file = open(path.join(options.destination, 'generated.log'), 'w')
+if not path.exists(options.destination):
+    os.makedirs(options.destination)
+
 generator = path.abspath(__file__)
-log_file.write(
-    '''
+dir_util.copy_tree(
+    options.source, options.destination, update = True)
+os.remove(path.join(options.destination, path.basename(__file__)))
+
+log('''
 Copied a template from: "%s"
 to: "%s"
 This is the project: "%s".
 The main class is: "%s"
 in package: "%s".
-''' % (options.source,
-       options.destination,
-       options.project,
-       options.entry_point,
-       options.package))
+''', options.source,
+    options.destination,
+    options.project,
+    options.entry_point,
+    options.package)
 
 def substitute_path(template):
     return template.substitute(
@@ -82,12 +114,18 @@ def move_by_template(files, directory, replace_content = False):
         target = path.join(directory, f)
         dst = path.join(directory, substitute_path(t))
         if dst != target:
-            log_file.write('Moving file "%s" to "%s"\n' % (target, dst))
+            log('Moving file "%s" to "%s"\n', target, dst)
             shutil.move(target, dst)
-        if replace_content and f.rsplit('.')[1] in ['hx', 'xml', 'txt', 'hxml', 'cfg']:
+        ext = f.rsplit('.')
+        try:
+            ext = ext[1]
+        except IndexError:
+            ext = ''
+        if replace_content and ext in ['hx', 'xml', 'txt', 'hxml', 'cfg', 'html']:
             replace_file = open(dst, 'r+')
             # This may become a problem for large files, but
             # hopefuly, there won't be very large tempaltes
+            log('Making substitutions in file "%s"', dst) 
             new_content = substitute_path(Template(replace_file.read()))
             replace_file.truncate(0)
             replace_file.seek(0)
@@ -105,5 +143,3 @@ def move_recursively(directory):
         break
 
 move_recursively(options.destination)
-
-log_file.close()

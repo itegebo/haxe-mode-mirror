@@ -36,7 +36,6 @@
 
 (eval-when-compile (require 'cl))
 (require 'haxe-log)
-(require 'srecode)                      ; not sure about this one
 
 (defvar build-hxml "build.hxml"
   "The name of the nxml file to build the project")
@@ -58,17 +57,23 @@ if not specified, the script searches for it in `project-root'/`build-hxml'")
   "The program for generating TAGS files"
   :type 'string :group 'haxe-mode)
 
-(defcustom haxe-project-kinds '("swf")
-  "The kinds of supported projects, they should go with compiler target platforms
-but aren't limited to it. This should correspond to the name of the directory inside
-project-templates directory"
-  :type 'list :group 'haxe-mode)
-
 (defcustom haxe-templates
   (concat (file-name-directory load-file-name) "/project-templates/")
   "The location of project templates (this would be the directory named
 project-templates under the directory where you installed haxe-mode."
   :type 'string :group 'haxe-mode)
+
+(defcustom haxe-project-kinds
+  ((lambda ()
+     (remove-if
+      (lambda (d)
+        (or (member d '("." ".."))
+            (not (file-directory-p d))))
+      (directory-files haxe-templates))))
+  "The kinds of supported projects, they should go with compiler target platforms
+but aren't limited to it. This should correspond to the name of the directory inside
+project-templates directory"
+  :type 'list :group 'haxe-mode)
 
 (defvar haxe-project-type-table (make-hash-table :test #'equal)
   "This variable contains references to all classes in currently opened project
@@ -108,77 +113,13 @@ The process of creating the project has 2 stages:
 "
   :type 'string :group 'haxe-mode)
 
-(defcustom haxe-template-extension ".tpl"
-  "The extension of the template files in the project, the contents of templates
-is red by Emacs and translated using SRecode templates engine."
-  :type 'string :group 'haxe-mode)
-
-;; (declare-function srecode-create-dictionary "srecode/dictionary")
-;; (declare-function srecode-dictionary-set-value "srecode/dictionary")
-;; (declare-function srecode-load-tables-for-mode "srecode/find")
-;; (declare-function srecode-table "srecode/find")
-;; (declare-function srecode-template-get-table "srecode/find")
-;; (declare-function srecode-insert-fcn "srecode/insert")
-;; (declare-function srecode-resolve-arguments "srecode/insert")
-;; (declare-function srecode-map-update-map "srecode/map")
-
-;; This doesn't work, only confuses the compilation
-
-;;;;###autoload
-;; (defun haxe-srecode-setup ()
-;;   "Update various paths to get SRecode to identify our macros."
-;;   (let* ((lib (locate-library "haxe-project.el" t))
-;; 	 (haxedir (file-name-directory lib))
-;; 	 (tmpdir (file-name-as-directory
-;; 		  (expand-file-name "templates" haxeedir))))
-;;     (when (not tmpdir)
-;;       (error "Unable to location HaXe Templates directory"))
-
-;;     ;; Rig up the map.
-;;     (require 'srecode-map)
-;;     (add-to-list 'srecode-map-load-path tmpdir)
-;;     (srecode-map-update-map t)
-    
-;;     ;; (srecode-load-tables-for-mode 'autoconf-mode)
-;;     ;; (srecode-load-tables-for-mode 'autoconf-mode 'ede)
-;;     ))
-
-;; (defmacro haxe-srecode-insert-with-dictionary (template &rest forms)
-;;   "Insert TEMPLATE after executing FORMS with a dictionary.
-;; TEMPLATE should specify a context by using a string format of:
-;;   context:templatename
-;; Locally binds the variable DICT to a dictionary which can be
-;; updated in FORMS."
-;;   `(let* ((dict (srecode-create-dictionary))
-;; 	  (temp (srecode-template-get-table
-;; 		 (srecode-table)
-;; 		 ,template nil 'haxe-tpl)))
-;;      (when (not temp)
-;;        (error "HaXe template %s for %s not found!"
-;; 	      ,template major-mode))
-;;      (srecode-resolve-arguments temp dict)
-
-;;      ;; Now execute forms for updating DICT.
-;;      (progn ,@forms)
-;;      (srecode-insert-fcn temp dict)))
-
-;; ;;;###autoload
-;; (defun haxe-srecode-insert (template &rest dictionary-entries)
-;;   "Insert at the current point TEMPLATE.
-;; TEMPLATE should specify a context by using a string format of:
-;;   context:templatename
-;; Add DICTIONARY-ENTRIES into the dictionary before insertion.
-;; Note: Just like `srecode-insert', but templates found in 'ede app (what is this?)."
-;;   (haxe-srecode-insert-with-dictionary
-;;    template
-;;    ;; Add in optional dictionary entries.
-;;    (while dictionary-entries
-;;      (srecode-dictionary-set-value
-;;       dict
-;;       (car dictionary-entries)
-;;       (cadr dictionary-entries))
-;;      (setq dictionary-entries
-;; 	   (cddr dictionary-entries)))))
+(defcustom haxe-project-args nil
+  "The alist of arguments to pass to the project generator for substitution
+in the project templates.
+This can be either an alist, or a callable object. If it is callable, it will
+be called with no arguments and it must return an alist containing key-value
+pairs to substitute in the project templates upon project creation."
+  :type '(or string function) :group 'haxe-mode)
 
 (defun resolve-project-root ()
   "Used at the time of building the commands involving currnet project directory
@@ -195,91 +136,68 @@ exist, will return `project-root'."
   (eshell-command 
    (format "'%s' '%s'" hxtags-location dir-name)))
 
-(defun haxe-process-template (old-file new-file)
-  (with-temp-buffer
-    (find-file old-file)
-    ;; xxx-mode - current editing mode
-    ;; yyy is probably the table associated with this module?
-    ;; (srecode-load-tables-for-mode 'xxx-mode)
-    ;; (srecode-load-tables-for-mode 'xxx-mode 'yyy)
-    ;; (haxe-srecode-insert "xxx-mode:file" some-list...)
-    (write-file new-file)
-    (kill-buffer)))
+(defun haxe-project-generator-args (&rest available)
+  "Loops over the arguments and removes pairs of arguments if the second
+is NIL. This is needed so we don't pass nills to the generator."
+  (loop for (key value) on available by #'cddr
+        when value append (list key value)))
 
-(defun haxe-replace-template-tokens (file-name)
-  (with-output-to-string
-    (dotimes (i (length file-name))
-      ;; that's for now, this will handle path expansions some time...
-      (princ (char-to-string (aref file-name i))))))
-
-(defun haxe-build-env-vars (src dst name)
-  (with-output-to-string
-    (princ (format "src='%s' dst='%s' project='%s' " src dst name))))
-
-(defun haxe-create-project (kind project-name destination)
-  "Creates HaXe project using the templates found in `haxe-templates'
-by running `haxe-create-project-from-directory'."
+(defun haxe-create-project (kind project-name destination
+                                 &optional entry-point package)
+  "Creates HaXe project using the templates found in `haxe-templates'.
+KIND is the directory containing the template files (under `haxe-templates')
+PROJECT-NAME is the name to give to the new project
+DESTINATION is the directory where the new project is created
+  optional:
+ENTRY-POINT is the name of the entry point class (and file) of the new project
+  if you don't specify it, the generator will use its own judgement
+PACKAGE is the package to place the entry point
+ if you don't specify it, the entry point is created in the top-level package."
   (interactive
-   (list
-    (completing-read "What kind of project should I create? "
-                     haxe-project-kinds)
-    (read-string "What should I call it? ")
-    (read-directory-name "Where should I create the project? ")))
+   (let ((i-kind
+          (completing-read
+           "What kind of project should I create? "
+           haxe-project-kinds nil t
+           (car haxe-project-kinds))))
+     (message "Kind? %s" i-kind)
+     (if (and i-kind (not (string= "" i-kind)))
+         (let ((i-name (read-string "What should I call it? "))
+               (i-destination
+                (read-directory-name
+                 "Where should I create the project? "))
+               (i-entry
+                (completing-read
+                 "Project's entry point: " '("Main")))
+               (i-package
+                (read-string
+                 "Package for the entry point? " nil nil "")))
+           (when (or (not i-name) (string= "" i-name))
+             (setq i-name "HaxeProject"))
+           (when (or (not i-entry) (string= "" i-entry))
+             (setq i-entry nil))
+           (when (or (not i-package) (string= "" i-package))
+             (setq i-package nil))
+           (list i-kind i-name i-destination i-entry i-package))
+       (error "Must specify a valid template"))))
   (block nil
     (when (file-exists-p destination)
       (let ((dstfiles (directory-files destination t)))
-	(when (and dstfiles (< 2 (length dstfiles)))
-	  (unless (yes-or-no-p "New project directory is not empty, proceed anyway? ")
-	    (return-from nil)))))
-    (let ((src (expand-file-name (concat haxe-templates kind "/"))))
-      (haxe-create-project-from-directory src destination)
-      (let ((pj-path (concat src haxe-project-generator)))
-        (when (file-exists-p pj-path)
-          (let ((command
-                 (concat "env "
-                         (haxe-build-env-vars
-                          (expand-file-name src)
-                          (expand-file-name destination)
-                          project-name) " "
-                          (shell-quote-argument pj-path))))
-            (haxe-log 3 "Calling env with: %s" command)
-            (shell-command command)))))))
-
-(defun haxe-create-project-from-directory (src dst)
-  "Creates the files required for the project in DST from template  in SRC."
-  (interactive "DTemplates directory: \nGDirectory for new project: ")
-  (let ((dst (file-name-directory dst)))
-    (mapc
-     #'(lambda (x)
-         (when (and (not (equal "." (file-name-nondirectory x)))
-                    (not (equal ".." (file-name-nondirectory x))))
-           (let ((new-file
-                  (concat dst (haxe-replace-template-tokens
-                               (file-name-nondirectory x)))))
-             (if (file-directory-p x)
-                 (progn
-                   (make-directory (haxe-file-name-to-directory new-file) t)
-                   (haxe-create-project-from-directory
-                    (haxe-file-name-to-directory x)
-                    (haxe-file-name-to-directory new-file)))
-               (let ((x-length (length x))
-                     (ext-lengt (length haxe-template-extension)))
-                 (if (and (> x-length ext-lengt)
-                          (string= (substring x (- x-length ext-lengt))
-                                   haxe-template-extension))
-                     (haxe-process-template
-                      x (substring new-file 0 (- ext-lengt)))
-                   (unless (string= (file-name-nondirectory x)
-                                    haxe-project-generator)
-                     (make-directory (file-name-directory new-file) t)
-                     (copy-file x new-file))))))))
-     (directory-files src t))))
-
-(defun haxe-file-name-to-directory (file-name)
-  ;; They deprecated and now removed directory-sep-char :( wtf?
-  (if (char-equal (aref file-name (1- (length file-name))) ?\/)
-      file-name
-      (concat file-name (char-to-string ?\/))))
+        (when (and dstfiles (< 2 (length dstfiles)))
+          (unless (yes-or-no-p "New project directory is not empty, proceed anyway? ")
+            (return-from nil)))))
+    (let* ((src (expand-file-name (concat haxe-templates kind "/")))
+           (pj-path (concat src haxe-project-generator)))
+      (when (file-exists-p pj-path)
+        (apply #'start-process
+               (append
+                (list pj-path "*haxe-project-generator*" pj-path)
+                (haxe-project-generator-args
+                 "-s" (expand-file-name src)
+                 "-d" (expand-file-name destination)
+                 "-n" project-name
+                 "-e" entry-point
+                 "-p" package
+                 "-l" "+generator.log")))))))
 
 (provide 'haxe-project)
 
