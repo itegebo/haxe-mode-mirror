@@ -113,7 +113,23 @@
 
 ;; Conditional compilation and metadata prefices.
 (c-lang-defconst c-opt-cpp-prefix
-  haxe "\\s *#" haxe "\\s *@:")
+  haxe "\\s *#")
+
+;; ---------------------------------------------------- < my change >
+
+(c-lang-defconst c-opt-cpp-macro-define
+  haxe nil)
+
+(c-lang-defconst c-opt-cpp-macro-define-start
+  haxe nil)
+
+(c-lang-defconst c-opt-cpp-macro-define-id
+  haxe nil)
+
+(c-lang-defconst c-symbol-start
+  haxe (concat "[" c-alpha "_@]:?"))
+
+;; --------------------------------------------------- < end my change >
 
 ;; No strings in conditional compilation.
 (c-lang-defconst c-cpp-message-directives
@@ -176,9 +192,7 @@
          ;; Exception.
          (prefix "throw")
          ;; Sequence.
-         (left-assoc ",")
-         ;; metadata (macros)
-         (prefix "@:")))
+         (left-assoc ",")))
 
 ;; No overloading.
 (c-lang-defconst c-overloadable-operators
@@ -263,7 +277,8 @@
 (c-lang-defconst c-cpp-matchers
   haxe (append
         (c-lang-const c-cpp-matchers c)
-        '(("\\<\\([A-Z][A-Za-z0-9_]*\\)\\>" 1 font-lock-type-face))))
+        '(("\\<\\([A-Z][A-Za-z0-9_]*\\)\\>" 1 font-lock-type-face))
+        '(("\\<\\(@:?[A-Za-z]+\\)\\>" 1 c-annotation-face))))
 
 ;; Generic types.
 (c-lang-defconst c-recognize-<>-arglists
@@ -300,8 +315,7 @@
 
 (defvar haxe-mode-map ()
   "Keymap used in haxe mode buffers.")
-(if haxe-mode-map
-    nil
+(unless haxe-mode-map
   (setq haxe-mode-map (c-make-inherited-keymap)))
 
 (add-to-list 'auto-mode-alist '("\\.hx\\'" . haxe-mode))
@@ -316,6 +330,515 @@
                1 2 3))
 
 ;; ------------------- My edits --------------------------------------------
+
+(defadvice c-forward-annotation
+  (around haxe-forward-annotation ())
+  "Overrides `c-forward-annotation' to be able to use @:\w+ syntax as well
+as the Java original syntax."
+  (message "c-forward-annotation overloaded")
+  (and (looking-at "@")
+       (progn (forward-char) t)
+       (if (looking-at ":")
+           (progn
+             (message "looked at :")
+             (forward-char)
+             (c-forward-type))
+         (c-forward-type))
+       (progn
+         (message "and stepped word")
+         (c-forward-syntactic-ws) t)
+       (if (looking-at "(")
+           (c-go-list-forward)
+         t)))
+
+(defadvice c-beginning-of-macro
+  (around haxe-beginning-of-macro (&optional lim))
+  "This completely shuts down `cpp-macro' syntax because it clashes
+with HaXe macro metadata." nil)
+
+(c-lang-defconst c-complex-decl-matchers
+  t `(c-font-lock-complex-decl-prepare
+      ,@(if (c-major-mode-is 'objc-mode)
+            `(,(c-make-font-lock-search-function
+                (c-make-keywords-re t
+                  (delete "@class"
+                          (append (c-lang-const c-protection-kwds)
+                                  (c-lang-const c-other-decl-kwds)
+                                  nil)))
+                '((c-put-char-property (1- (match-end 1))
+                                       'c-type 'c-decl-end)))
+              c-font-lock-objc-methods))
+      c-font-lock-declarations
+      c-font-lock-enclosing-decls
+      ,@(when (c-lang-const c-recognize-<>-arglists)
+          `(c-font-lock-<>-arglists))
+      ,(let ((re (c-make-keywords-re nil
+                   (c-lang-const c-primitive-type-kwds))))
+         (if (c-major-mode-is 'pike-mode)
+             `(,(concat "\\(\\=.?\\|[^>]\\|[^-]>\\)"
+                        "\\<\\(" re "\\)\\>")
+               2 font-lock-type-face)
+           `(,(concat "\\<\\(" re "\\)\\>")
+             1 'font-lock-type-face)))
+      ,@(when (c-lang-const c-type-prefix-kwds)
+          `((,(byte-compile
+               `(lambda (limit)
+                  (c-fontify-types-and-refs
+                      ((c-promote-possible-types t)
+                       (parse-sexp-lookup-properties
+                        (cc-eval-when-compile
+                          (boundp 'parse-sexp-lookup-properties))))
+                    (save-restriction
+                      (narrow-to-region (point) limit)
+                      (while (re-search-forward
+                              ,(concat "\\<\\("
+                                       (c-make-keywords-re nil
+                                         (c-lang-const c-type-prefix-kwds))
+                                       "\\)\\>")
+                              limit t)
+                        (unless (c-skip-comments-and-strings limit)
+                          (c-forward-syntactic-ws)
+                          ;; My change was to add a colon to the expresion
+                          ;; the rest is identical to the original definition in c-mode.
+                          ;; I've removed all other comments to make the code shorter.
+                          (when (or (looking-at c-prefix-spec-kwds-re)
+                                    (and (c-major-mode-is 'java-mode)
+                                         (looking-at "@?:[A-Za-z0-9]+")))
+                            (c-forward-keyword-clause 1))
+                          ,(if (c-major-mode-is 'c++-mode)
+                               `(when (and (c-forward-type)
+                                           (eq (char-after) ?=))
+                                  (forward-char)
+                                  (c-forward-syntactic-ws)
+                                  (c-forward-type))
+                             `(c-forward-type)))))))))))
+      ,@(when (c-major-mode-is 'c++-mode)
+          `(("\\<new\\>"
+             (c-font-lock-c++-new))))))
+
+(c-lang-defconst c-basic-matchers-after
+  t `(,@(when (c-lang-const c-brace-id-list-kwds)
+          `(c-font-lock-enum-tail
+            (,(c-make-font-lock-search-function
+               (concat
+                "\\<\\("
+                (c-make-keywords-re nil (c-lang-const c-brace-id-list-kwds))
+                "\\)\\>"
+                "[^\]\[{}();,/#=]*"
+                "{")
+               '((c-font-lock-declarators limit t nil)
+                 (save-match-data
+                   (goto-char (match-end 0))
+                   (c-put-char-property (1- (point)) 'c-type
+                                        'c-decl-id-start)
+                   (c-forward-syntactic-ws))
+                 (goto-char (match-end 0)))))))
+
+      ,@(when (c-lang-const c-before-label-kwds)
+          `((eval
+             . ,(let* ((c-before-label-re
+                        (c-make-keywords-re nil
+                          (c-lang-const c-before-label-kwds))))
+                  `(list
+                    ,(concat "\\<\\(" c-before-label-re "\\)\\>"
+                             "\\s *"
+                             "\\("	; identifier-offset
+                             (c-lang-const c-symbol-key)
+                             "\\)")
+                    (list ,(+ (regexp-opt-depth c-before-label-re) 2)
+                          c-label-face-name nil t))))))
+      ,@(when (or (c-lang-const c-type-list-kwds)
+                  (c-lang-const c-ref-list-kwds)
+                  (c-lang-const c-colon-type-list-kwds))
+          `((,(c-make-font-lock-BO-decl-search-function
+               (concat "\\<\\("
+                       (c-make-keywords-re nil
+                         (append (c-lang-const c-type-list-kwds)
+                                 (c-lang-const c-ref-list-kwds)
+                                 (c-lang-const c-colon-type-list-kwds)))
+                       "\\)\\>")
+               '((c-fontify-types-and-refs ((c-promote-possible-types t))
+                   (c-forward-keyword-clause 1)
+                   (if (> (point) limit) (goto-char limit))))))))
+
+      ,@(when (c-lang-const c-paren-type-kwds)
+          `((,(c-make-font-lock-search-function
+               (concat "\\<\\("
+                       (c-make-keywords-re nil
+                         (c-lang-const c-paren-type-kwds))
+                       "\\)\\>")
+               '((c-fontify-types-and-refs ((c-promote-possible-types t))
+                   (c-forward-keyword-clause 1)
+                   (if (> (point) limit) (goto-char limit))))))))
+      ;; This is my change on top of the original c-mode, the rest is idenatical
+      ;; to the original. Removed other comments for shortness.
+      ,@(when (c-major-mode-is 'java-mode)
+          `((eval . (list "\\<\\(@:?[a-zA-Z0-9]+\\)\\>" 1 c-annotation-face))))))
+
+;; TODO: find the way to reuse the original, this function is huge, don't want
+;; to duplicate it here.
+(defadvice c-forward-decl-or-cast-1
+  (around haxe-forward-decl-or-cast-1
+          (preceding-token-end context last-cast-end))
+  "See the original documentation in the `c-forward-decl-or-cast-1'"
+  (let ((start-pos (point))
+        at-type
+        type-start
+        id-start
+        backup-at-type backup-type-start backup-id-start
+        at-type-decl
+        at-typedef
+        maybe-typeless
+        backup-at-type-decl backup-maybe-typeless
+        at-decl-or-cast
+        backup-if-not-cast
+        cast-end
+        (save-rec-type-ids c-record-type-identifiers)
+        (save-rec-ref-ids c-record-ref-identifiers))
+
+    (while (c-forward-annotation)
+      (c-forward-syntactic-ws))
+    (while
+        (let* ((start (point)) kwd-sym kwd-clause-end found-type)
+          (when (or (looking-at c-prefix-spec-kwds-re)
+                    (and (c-major-mode-is 'java-mode)
+                         ;; my change: added colon to the expression
+                         (looking-at "@:?[A-Za-z0-9]+")))
+            (if (looking-at c-typedef-key)
+                (setq at-typedef t))
+            (setq kwd-sym (c-keyword-sym (match-string 1)))
+            (save-excursion
+              (c-forward-keyword-clause 1)
+              (setq kwd-clause-end (point))))
+          (when (setq found-type (c-forward-type t)) ; brace-block-too
+            (when at-type
+              (setq at-decl-or-cast 'ids)
+              (when (eq at-type 'found)
+                (save-excursion
+                  (goto-char type-start)
+                  (let ((c-promote-possible-types t))
+                    (c-forward-type)))))
+            (setq backup-at-type at-type
+                  backup-type-start type-start
+                  backup-id-start id-start
+                  at-type found-type
+                  type-start start
+                  id-start (point)
+                  backup-at-type-decl nil
+                  backup-maybe-typeless nil))
+          (if kwd-sym
+              (progn
+                (if (c-keyword-member kwd-sym 'c-decl-hangon-kwds)
+                    (progn
+                      (setq at-decl-or-cast t)
+                      (if at-type
+                          (setq id-start kwd-clause-end)
+                        (setq start-pos kwd-clause-end))
+                      (goto-char kwd-clause-end))
+                  (setq backup-at-type nil
+                        start-pos kwd-clause-end)
+                  (if found-type
+                      (progn
+                        (when (c-keyword-member kwd-sym 'c-typedef-decl-kwds)
+                          (setq backup-at-type-decl t))
+                        (when (c-keyword-member kwd-sym 'c-typeless-decl-kwds)
+                          (setq backup-maybe-typeless t)))
+                    (when (c-keyword-member kwd-sym 'c-typedef-decl-kwds)
+                      (setq at-type-decl t))
+                    (when (c-keyword-member kwd-sym 'c-typeless-decl-kwds)
+                      (setq maybe-typeless t))
+                    (setq at-decl-or-cast t)
+                    (goto-char kwd-clause-end))))
+            (and found-type (not (eq found-type t))))))
+    (cond
+     ((eq at-type t)
+      (while (looking-at c-decl-hangon-key)
+        (c-forward-keyword-clause 1))
+      (setq id-start (point)))
+     ((eq at-type 'prefix)
+      (setq at-type t))
+     ((not at-type)
+      (setq id-start start-pos))
+     ((and (eq at-type 'maybe)
+           (c-major-mode-is 'c++-mode))
+      (save-excursion
+        (let (name end-2 end-1)
+          (goto-char id-start)
+          (c-backward-syntactic-ws)
+          (setq end-2 (point))
+          (when (and
+                 (c-simple-skip-symbol-backward)
+                 (progn
+                   (setq name
+                         (buffer-substring-no-properties (point) end-2))
+                   (< (skip-chars-backward ":~ \t\n\r\v\f") 0))
+                 (progn
+                   (setq end-1 (point))
+                   (c-simple-skip-symbol-backward))
+                 (>= (point) type-start)
+                 (equal (buffer-substring-no-properties (point) end-1)
+                        name))
+            (goto-char type-start)
+            (setq at-type nil
+                  backup-at-type nil
+                  id-start type-start))))))
+    (let ((start (point)) (paren-depth 0) pos
+          got-prefix
+          got-parens
+          got-identifier
+          got-suffix
+          got-prefix-before-parens
+          got-suffix-after-parens
+          at-decl-end
+          identifier-type identifier-start
+          c-parse-and-markup-<>-arglists)
+      (goto-char id-start)
+      (while (and (looking-at c-type-decl-prefix-key)
+                  (if (and (c-major-mode-is 'c++-mode)
+                           (match-beginning 3))
+                      (when (setq got-identifier (c-forward-name))
+                        (if (looking-at "\\(::\\)")
+                            (progn (setq got-identifier nil) t)
+                          nil))
+                    t))
+        (if (eq (char-after) ?\()
+            (progn
+              (setq paren-depth (1+ paren-depth))
+              (forward-char))
+          (unless got-prefix-before-parens
+            (setq got-prefix-before-parens (= paren-depth 0)))
+          (setq got-prefix t)
+          (goto-char (match-end 1)))
+        (c-forward-syntactic-ws))
+      (setq got-parens (> paren-depth 0))
+      (or got-identifier
+          (and (looking-at c-identifier-start)
+               (setq got-identifier (c-forward-name))))
+      (while (if (looking-at c-type-decl-suffix-key)
+                 (if (eq (char-after) ?\))
+                     (when (> paren-depth 0)
+                       (setq paren-depth (1- paren-depth))
+                       (forward-char)
+                       t)
+                   (when (if (save-match-data (looking-at "\\s\("))
+                             (c-safe (c-forward-sexp 1) t)
+                           (goto-char (match-end 1))
+                           t)
+                     (when (and (not got-suffix-after-parens)
+                                (= paren-depth 0))
+                       (setq got-suffix-after-parens (match-beginning 0)))
+                     (setq got-suffix t)))
+               (when (and (= paren-depth 1)
+                          (not got-prefix-before-parens)
+                          (not (eq at-type t))
+                          (or backup-at-type
+                              maybe-typeless
+                              backup-maybe-typeless
+                              (when c-recognize-typeless-decls
+                                (not context)))
+                          (setq pos (c-up-list-forward (point)))
+                          (eq (char-before pos) ?\)))
+                 (c-fdoc-shift-type-backward)
+                 (goto-char pos)
+                 t))
+
+        (c-forward-syntactic-ws))
+
+      (when (and (or maybe-typeless backup-maybe-typeless)
+                 (not got-identifier)
+                 (not got-prefix)
+                 at-type)
+        (c-fdoc-shift-type-backward))
+      (setq
+       at-decl-or-cast
+       (catch 'at-decl-or-cast
+         (when (> paren-depth 0)
+           (c-safe (goto-char (scan-lists (point) 1 paren-depth)))
+           (throw 'at-decl-or-cast (eq at-decl-or-cast t)))
+         (setq at-decl-end
+               (looking-at (cond ((eq context '<>) "[,>]")
+                                 (context "[,\)]")
+                                 (t "[,;]"))))
+         (if got-identifier
+             (progn
+               (when (and (or at-type maybe-typeless)
+                          (not (or got-prefix got-parens)))
+                 (throw 'at-decl-or-cast t))
+
+               (when (and got-parens
+                          (not got-prefix)
+                          (not got-suffix-after-parens)
+                          (or backup-at-type
+                              maybe-typeless
+                              backup-maybe-typeless))
+                 (c-fdoc-shift-type-backward)))
+           (if backup-at-type
+               (progn
+                 (when (= (point) start)
+                   (if (and (eq (char-after) ?:)
+                            (not (c-major-mode-is 'java-mode)))
+                       (cond
+                        ((eq at-decl-or-cast t)
+                         (throw 'at-decl-or-cast t))
+                        ((and c-has-bitfields
+                              (eq at-decl-or-cast 'ids)) ; bitfield.
+                         (setq backup-if-not-cast t)
+                         (throw 'at-decl-or-cast t)))
+                     (setq backup-if-not-cast t)
+                     (throw 'at-decl-or-cast t)))
+                 (when (and got-suffix
+                            (not got-prefix)
+                            (not got-parens))
+                   (setq backup-if-not-cast t)
+                   (throw 'at-decl-or-cast t)))
+             (when (eq at-type t)
+               (throw 'at-decl-or-cast t))
+
+             (when (= (point) start)
+               (if (and
+                    at-decl-end
+                    (cond
+                     ((eq context 'decl)
+                      (or (and (not c-recognize-knr-p)
+                               (not c-recognize-paren-inits))
+                          (memq at-type '(known found))))
+                     ((eq context '<>)
+                      (memq at-type '(known found)))))
+                   (throw 'at-decl-or-cast t)
+                 (throw 'at-decl-or-cast at-decl-or-cast))))
+           (if (and got-parens
+                    (not got-prefix)
+                    (not context)
+                    (not (eq at-type t))
+                    (or backup-at-type
+                        maybe-typeless
+                        backup-maybe-typeless
+                        (when c-recognize-typeless-decls
+                          (or (not got-suffix)
+                              (not (looking-at
+                                    c-after-suffixed-type-maybe-decl-key))))))
+               (c-fdoc-shift-type-backward)
+             (when (and got-prefix (or got-parens got-suffix))
+               (throw 'at-decl-or-cast t))
+             (when (and at-type
+                        (not got-prefix)
+                        (not got-parens)
+                        got-suffix-after-parens
+                        (eq (char-after got-suffix-after-parens) ?\())
+               (throw 'at-decl-or-cast nil))))
+         (when at-decl-or-cast
+           (throw 'at-decl-or-cast t))
+         (when (and got-identifier
+                    (not context)
+                    (looking-at c-after-suffixed-type-decl-key)
+                    (if (and got-parens
+                             (not got-prefix)
+                             (not got-suffix)
+                             (not (eq at-type t)))
+                        (progn (c-fdoc-shift-type-backward) t)
+                      got-suffix-after-parens))
+           (throw 'at-decl-or-cast t))
+         (when (and (or got-prefix (not got-parens))
+                    (memq at-type '(t known)))
+           (throw 'at-decl-or-cast t))
+         (unless (or at-decl-end (looking-at "=[^=]"))
+           (throw 'at-decl-or-cast at-decl-or-cast))
+         (when (memq at-type '(t known))
+           (throw 'at-decl-or-cast t))
+         (when (and (c-major-mode-is 'c++-mode)
+                    identifier-type
+                    (or (memq identifier-type '(found known))
+                        (and (eq (char-after identifier-start) ?~)
+                             (or (save-excursion
+                                   (goto-char (1+ identifier-start))
+                                   (c-forward-syntactic-ws)
+                                   (c-with-syntax-table
+                                       c-identifier-syntax-table
+                                     (looking-at c-known-type-key)))
+                                 (save-excursion
+                                   (goto-char (1+ identifier-start))
+                                   (c-check-type (point)
+                                                 (progn (c-forward-type)
+                                                        (point))))))))
+           (throw 'at-decl-or-cast t))
+         (if got-identifier
+             (progn
+               (when (and got-prefix-before-parens
+                          at-type
+                          (or at-decl-end (looking-at "=[^=]"))
+                          (not context)
+                          (not got-suffix))
+                 (throw 'at-decl-or-cast t))
+               (when (and (or got-suffix-after-parens
+                              (looking-at "=[^=]"))
+                          (eq at-type 'found)
+                          (not (eq context 'arglist)))
+                 (throw 'at-decl-or-cast t)))
+           (when (and context
+                      (or got-prefix
+                          (and (eq context 'decl)
+                               (not c-recognize-paren-inits)
+                               (or got-parens got-suffix))))
+             (throw 'at-decl-or-cast t)))
+         (eq context 'decl))))
+    (cond
+     ((save-excursion
+        (and
+         c-cast-parens
+         (> preceding-token-end (point-min))
+         (memq (char-before preceding-token-end) c-cast-parens)
+         (progn
+           (c-forward-syntactic-ws)
+           (looking-at "\\s\)"))
+         (let (pos)
+           (forward-char)
+           (c-forward-syntactic-ws)
+           (setq cast-end (point))
+           (and (looking-at c-primary-expr-regexp)
+                (progn
+                  (setq pos (match-end 0))
+                  (or
+                   (match-beginning 2)
+                   (if (match-beginning 1)
+                       (or at-decl-or-cast
+                           (memq at-type '(t known found)))
+                     (not (looking-at c-keywords-regexp)))))
+                (or (not (looking-at c-nonsymbol-token-regexp))
+                    (<= (match-end 0) pos))))
+         (> preceding-token-end (point-min))
+         (progn
+           (goto-char (1- preceding-token-end))
+           (or (eq (point) last-cast-end)
+               (progn
+                 (c-backward-syntactic-ws)
+                 (if (< (skip-syntax-backward "w_") 0)
+                     (looking-at c-simple-stmt-key)
+                   (and
+                    (not (memq (char-before) '(?\) ?\])))
+                    (not (c-on-identifier)))))))))
+      (when (and c-record-type-identifiers at-type (not (eq at-type t)))
+        (let ((c-promote-possible-types t))
+          (goto-char type-start)
+          (c-forward-type)))
+      (goto-char cast-end)
+      'cast)
+     (at-decl-or-cast
+      (when backup-if-not-cast
+        (c-fdoc-shift-type-backward t))
+      (when (and (eq context 'decl) (looking-at ","))
+        (c-put-c-type-property (point) 'c-decl-arg-start))
+      (when (and c-record-type-identifiers at-type (not (eq at-type t)))
+        (let ((c-promote-possible-types t))
+          (save-excursion
+            (goto-char type-start)
+            (c-forward-type))))
+      (cons id-start
+            (and (or at-type-decl at-typedef)
+                 (cons at-type-decl at-typedef))))
+     (t
+      (setq c-record-type-identifiers save-rec-type-ids
+            c-record-ref-identifiers save-rec-ref-ids)
+      nil))))
 
 ;; TODO: we need to use when generating TAGS, but before we
 ;; can use it, we need a good way to generate TAGS for HaXe code
@@ -475,30 +998,6 @@ But chosen a bad time to do it" input)
 when autocompletion is in progress"
   (unless (= 2 received-status) ad-do-it))
 
-;; (defun haxe-flymake-change-function (start stop len)
-;;   "Substitute for `flymake-after-change-function' to prevent it from updating
-;; when autocompletion is in process"
-;;   (unless (= 2 received-status)
-;;     (when old-flymake-after-change-function
-;; 	(funcall old-flymake-after-change-function start stop len))))
-
-;; ;; TODO: All this nonsense has to be replaced with defadvice.
-;; ;; File: elisp.info,  Node: Simple Advice
-
-;; (defun haxe-toggle-flymake-inbetween-saves ()
-;;   "Toggles flymake updates made after the code is changed"
-;;   (interactive)
-;;   (if old-flymake-after-change-function
-;;       (progn
-;; 	(haxe-log 3 "restoring flymake-after-change-function")
-;; 	(fset #'flymake-after-change-function old-flymake-after-change-function)
-;; 	(setq old-flymake-after-change-function nil))
-;;     (progn
-;;       (haxe-log 3 "disabling flymake-after-change-function")
-;;       (setq old-flymake-after-change-function #'flymake-after-change-function)
-;;       (make-local-variable #'flymake-after-change-function)
-;;       (fset #'flymake-after-change-function #'haxe-flymake-change-function))))
-
 (defun haxe-kill-network-process ()
   "Kill connection to HaXe compiler server and Flymake process in this buffer"
   (when (equal major-mode 'haxe-mode)
@@ -647,9 +1146,10 @@ Key bindings:
   (setq compile-command
         (concat haxe-compiler " " (resolve-project-root) build-hxml))
   (flymake-mode)
-  ;; (unless old-flymake-after-change-function
-  ;;   (haxe-toggle-flymake-inbetween-saves))
   (ad-activate 'flymake-after-change-function)
+  (ad-activate 'c-forward-annotation)
+  (ad-activate 'c-forward-decl-or-cast-1)
+  (ad-activate 'c-beginning-of-macro)
   (when (fboundp 'auto-complete-mode)
     ;; TODO: Also need to disable the autocompletion on our side if
     ;; auto-complete is not installed

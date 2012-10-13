@@ -1,6 +1,6 @@
--main {{package}}.{{main-class}}
+-main $package.$entry_point
 -debug
--swf-version {{major-version}}
+-swf-version 10
 -swf-header 800:600:31
--cp {{project-directory}}/src
--swf {{project-directory}}/bin/{{name}}.swf
+-cp $destination/src
+-swf $destination/bin/$project.swf

@@ -1,0 +1,132 @@
+
+haxe-completion.el,2206
+(defcustom haxe-completion-method 43,1300
+(defcustom haxe-compiler 50,1654
+(defcustom haxe-server-host 54,1752
+(defcustom haxe-server-port 58,1869
+(defvar haxe-compiler-process 62,1998
+(defvar haxe-network-process 66,2138
+(defvar haxe-network-process-buffer 69,2241
+(defvar received-status 73,2455
+(defvar last-compiler-response 81,2772
+(defvar haxe-eol 85,2954
+(defvar response-terminator 88,3056
+(defvar haxe-ac-dot-sources93,3269
+(defvar haxe-last-ac-candidates 104,3603
+(defvar documentation-hash 109,3846
+(defvar haxe-last-ac-candidates-filtered 112,3985
+(defvar haxe-string-to-complete 115,4104
+(defvar haxe-completion-pos 118,4198
+(defvar completion-requested 121,4281
+(defvar haxe-folding-delimiters 124,4377
+(defvar haxe-folding-terminators 127,4488
+(defvar haxe-folding-exceptions130,4624
+(defun haxe-connect-to-compiler-server 138,5020
+(defun haxe-package 163,5897
+(defun haxe-conditional-comps 171,6206
+(defun haxe-build-cwd 177,6406
+(defun haxe-read-hxml 183,6607
+(defun haxe-class-name 202,7384
+(defun haxe-ac-prefix-matcher 208,7598
+(defun haxe-ac-init 215,7888
+(defun haxe-build-compile-string 259,9565
+(defun point-in-bytes 271,10087
+(defun haxe-ac-candidates 275,10215
+(defun haxe-completion-filter 281,10419
+(defun remove-if! 298,11196
+(defun haxe-levenstain 321,11921
+(defun fliter-candidates-levenstain 352,13276
+(defun filter-candidates-exact 367,13924
+(defun filter-candidates-sturdy 379,14351
+(defun filter-candidates-fuzzy 405,15347
+(defun haxe-ac-documentation 415,15679
+(defun haxe-complete-dot-ac 419,15829
+(defun hxc-parse-methods 437,16508
+(defun hxc-modify-by-sig 441,16594
+(defun hxc-lookup-help 445,16665
+(defun hxc-msg 449,16741
+(defun hxc-lookup-signature 453,16796
+(defun haxe-complete-dot-ido 457,16877
+(defun haxe-hint-paren 472,17438
+(defun haxe-start-waiting-server 492,17960
+(defun haxe-parse-ac-response 504,18378
+(defun replace-all 536,19595
+(defun exception-p 554,20295
+(defun read-word 561,20569
+(defun fold-string-words587,21779
+(defun haxe-pad-region 647,24439
+(defun fold-string 671,25659
+(defun condence-white-string 701,26722
+(defun trim-string 711,27098
+(defun haxe-parse-hint-response 736,27916
+
+haxe-help.el,749
+(defcustom haxe-help-location39,1156
+(defcustom haxe-help-language 44,1333
+(defcustom haxe-help-url 49,1483
+(defcustom haxe-help-url-builder 53,1646
+(defstruct haxe-help-item 58,1867
+(defun haxe-face-at-point 60,1912
+(defun haxe-string-at-point 81,2794
+(defun haxe-electric-help 93,3106
+(defun haxe-number-binary 148,5393
+(defun haxe-color-string 154,5524
+(defun haxe-display-number 161,5682
+(defun haxe-string-to-charcodes 184,6350
+(defun haxe-string-to-u-string 191,6533
+(defun haxe-string-to-html-string 196,6669
+(defun haxe-string-to-x-string 201,6808
+(defun haxe-display-string 213,7205
+(defun haxe-display-basic-help 225,7805
+(defun haxe-wiki-help 229,7925
+(defun haxe-google-help 235,8170
+(defun haxe-online-help 244,8516
+
+haxe-log.el,60
+(defcustom haxe-log-level 37,1121
+(defun haxe-log 42,1285
+
+haxe-mode.el,1144
+(defconst haxe-font-lock-keywords-1 288,8944
+(defconst haxe-font-lock-keywords-2 291,9055
+(defconst haxe-font-lock-keywords-3 294,9170
+(defvar haxe-font-lock-keywords 297,9289
+(defvar haxe-mode-syntax-table 300,9400
+(defvar haxe-mode-abbrev-table 306,9608
+(defvar haxe-mode-map 316,10077
+(defadvice c-forward-annotation334,10703
+(defadvice c-beginning-of-macro354,11312
+(defadvice c-forward-decl-or-cast-1480,17424
+(defcustom haxe-std-library 845,32898
+(defvar old-flymake-after-change-function 849,33035
+(defun haxe-flymake-install 853,33168
+(defun haxe-flymake-init 869,33748
+(defun haxe-flymake-get-cmdline 888,34425
+(defun haxe-flymake-cleanup 906,35047
+(defun haxe-flymake-create-temp-intemp 910,35170
+(defun haxe-identify-project-root 917,35419
+(defun haxe-listen-filter 930,36019
+(defun haxe-build-flymake-list 983,37891
+(defadvice flymake-after-change-function995,38186
+(defun haxe-kill-network-process 1001,38436
+(defun haxe-try-set-ecb-outlines 1014,38900
+(defun haxe-parse-tags 1035,39909
+(defun haxe-calculate-offset-from-vector 1087,41755
+(defcustom haxe-mode-hook 1102,42266
+(defun haxe-mode 1107,42357
+
+haxe-project.el,520
+(defvar build-hxml 40,1241
+(defvar project-root 44,1355
+(defvar project-build-command 51,1606
+(defcustom hxtags-location55,1795
+(defcustom haxe-templates60,1961
+(defcustom haxe-project-kinds66,2235
+(defvar haxe-project-type-table 78,2661
+(defcustom haxe-etags-program 85,3060
+(defcustom haxe-project-generator 90,3298
+(defcustom haxe-project-args 116,4677
+(defun resolve-project-root 124,5086
+(defun create-haxe-tags 131,5382
+(defun haxe-project-generator-args 139,5645
+(defun haxe-create-project 145,5929
