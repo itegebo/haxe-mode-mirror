@@ -68,7 +68,7 @@ project-templates under the directory where you installed haxe-mode."
      (remove-if
       (lambda (d)
         (or (member d '("." ".."))
-            (not (file-directory-p d))))
+            (not (file-directory-p (concat haxe-templates "/" d)))))
       (directory-files haxe-templates))))
   "The kinds of supported projects, they should go with compiler target platforms
 but aren't limited to it. This should correspond to the name of the directory inside

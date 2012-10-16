@@ -74,10 +74,12 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
+(require 'cc-bytecomp)
 (require 'cc-mode)
 (require 'cc-fonts)
+;; (cc-require-when-compile 'cc-langs)
 (require 'cc-langs)
-(require 'cc-bytecomp)
+
 (require 'compile)
 ;; ------------------- my change -------------------------------------
 (require 'flymake)
@@ -226,13 +228,13 @@
   
 ;; Definition modifiers.
 (c-lang-defconst c-modifier-kwds
-  haxe '( "private" "public" "static" "override"))
+  haxe '( "private" "public" "static" "override" "inline"))
 (c-lang-defconst c-other-decl-kwds
   haxe nil)
 
 ;; Namespaces.
 (c-lang-defconst c-ref-list-kwds
- haxe '( "import" "package"))
+ haxe '( "import" "package" "using"))
 
 ;; Statement keywords followed directly by a substatement.
 (c-lang-defconst c-block-stmt-1-kwds
@@ -335,7 +337,6 @@
   (around haxe-forward-annotation ())
   "Overrides `c-forward-annotation' to be able to use @:\w+ syntax as well
 as the Java original syntax."
-  (message "c-forward-annotation overloaded")
   (and (looking-at "@")
        (progn (forward-char) t)
        (if (looking-at ":")
@@ -900,7 +901,7 @@ the command to run, and a list of arguments.  The resulting command is like:
 	  "--connect"
 	  (concat haxe-server-host ":" (number-to-string haxe-server-port)))
 	 (haxe-build-flymake-list
-	  (replace-all (substring (file-name-sans-extension (buffer-file-name))
+	  (haxe-replace-all (substring (file-name-sans-extension (buffer-file-name))
 				  (+ (length (resolve-project-root)) 5)) [?/] [?.])))))
 
 (defun haxe-flymake-cleanup ()
@@ -934,47 +935,47 @@ directory"
     (cond
      ((null input)
       (haxe-log 3 "HaXe compiler sends no input")
-      (when (= received-status 2)
-	(setq last-compiler-response "No input"
+      (when (= haxe-received-status 2)
+	(setq haxe-last-compiler-response "No input"
 	      completion-requested nil)
 	(return-from nil)))
-     ((and (= received-status 2) (not (null input))
+     ((and (= haxe-received-status 2) (not (null input))
 	   input (char-equal (aref input 0) ?<))
       (if (or (and (string= (substring input 0 6) "<list>")
-		   (string= response-terminator "</list>\n"))
+		   (string= haxe-response-terminator "</list>\n"))
 	      (and (string= (substring input 0 6) "<type>")
-		   (string= response-terminator "</type>\n")))
-	  (setq received-status 0
-		last-compiler-response input)
+		   (string= haxe-response-terminator "</type>\n")))
+	  (setq haxe-received-status 0
+		haxe-last-compiler-response input)
 	(progn
-	  (setq last-compiler-response "Wrong tag"
+	  (setq haxe-last-compiler-response "Wrong tag"
 		completion-requested nil)
 	  (haxe-log 3 "Received wrong result, expected %s, received %s"
-		    (substring response-terminator 0 -1) input)
+		    (substring haxe-response-terminator 0 -1) input)
 	  (return-from nil))))
-     ((= received-status 1)
-      (setq last-compiler-response (concat last-compiler-response input)))
-     ((= received-status 2)
+     ((= haxe-received-status 1)
+      (setq haxe-last-compiler-response (concat haxe-last-compiler-response input)))
+     ((= haxe-received-status 2)
       (haxe-log 3 "Compiler had something to say:
 
 '%s'
 
 But chosen a bad time to do it" input)
-      (setq last-compiler-response nil)
+      (setq haxe-last-compiler-response nil)
       (return-from nil)))
     
-    (if (and (< received-status 2)
-	     (string= (substring last-compiler-response
-				 (- (length response-terminator)))
-		      response-terminator))
-	(setq received-status 2)
-      (setq received-status 1))
+    (if (and (< haxe-received-status 2)
+	     (string= (substring haxe-last-compiler-response
+				 (- (length haxe-response-terminator)))
+		      haxe-response-terminator))
+	(setq haxe-received-status 2)
+      (setq haxe-received-status 1))
 
     (haxe-log 3 "filter received: %s %s"
-	      received-status
-	      (string= (substring last-compiler-response
-				  (- (length response-terminator)))
-		       response-terminator))))
+	      haxe-received-status
+	      (string= (substring haxe-last-compiler-response
+				  (- (length haxe-response-terminator)))
+		       haxe-response-terminator))))
 
 ;; ----------------------------------------------------------------------------
 ;; Ritchie Turner (blackdog@cloudshift.cl)
@@ -996,7 +997,7 @@ But chosen a bad time to do it" input)
   (around haxe-override-flymake-change (start stop len))
   "Overrides `flymake-after-change-function' to prevent it from running
 when autocompletion is in progress"
-  (unless (= 2 received-status) ad-do-it))
+  (unless (= 2 haxe-received-status) ad-do-it))
 
 (defun haxe-kill-network-process ()
   "Kill connection to HaXe compiler server and Flymake process in this buffer"
@@ -1137,7 +1138,7 @@ Key bindings:
   
   (c-set-offset 'substatement-open 0)
   (haxe-connect-to-compiler-server 1)
-  (local-set-key "." haxe-completion-method)
+  ;; (local-set-key "." haxe-completion-method)
   (local-set-key "(" 'haxe-hint-paren)
   (local-set-key (kbd "C-c h") 'haxe-electric-help)
   (setq flymake-log-level 0)
@@ -1153,7 +1154,9 @@ Key bindings:
   (when (fboundp 'auto-complete-mode)
     ;; TODO: Also need to disable the autocompletion on our side if
     ;; auto-complete is not installed
-    (auto-complete-mode 1))
+    (auto-complete-mode 1)
+    (when (boundp 'ac-sources)
+      (add-to-list 'ac-sources 'haxe-ac-dot-sources)))
   (add-hook 'kill-buffer-hook 'haxe-kill-network-process)
   (haxe-try-set-ecb-outlines)
   ;; ---------------------------- end my changes ----------------------

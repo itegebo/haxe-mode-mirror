@@ -98,24 +98,49 @@ in package: "%s".
     options.package)
 
 def substitute_path(template):
+    p_path = options.package.replace('.', '/');
+    p_dot = options.package
+    if len(p_path):
+        p_path += '/'
+        p_dot += '.'
     return template.substitute(
         source = options.source,
         project = options.project,
         destination = options.destination,
         entry_point = options.entry_point,
         package = options.package,
+        package_path = p_path,
+        package_dot = p_dot,
         author = options.author,
         date = now,
         generator = generator)
 
 def move_by_template(files, directory, replace_content = False):
     for f in files:
-        t = Template(f)
-        target = path.join(directory, f)
-        dst = path.join(directory, substitute_path(t))
+        # this is better then startswith() because if there's $entry_point_foo
+        # we won't accidentaly move it.
+        moved_deeper = False
+        if f.partition('.')[0] == '$entry_point' and len(options.package) > 1:
+            p_path = options.package.replace('.', '/')
+            ap_path = path.join(directory, p_path)
+            if not path.exists(ap_path):
+                os.makedirs(ap_path)
+            t = Template(f)
+            target = path.join(directory, f)
+            dst = path.join(ap_path, substitute_path(t))
+            moved_deeper = True
+        else:
+            t = Template(f)
+            target = path.join(directory, f)
+            dst = path.join(directory, substitute_path(t))
         if dst != target:
             log('Moving file "%s" to "%s"\n', target, dst)
             shutil.move(target, dst)
+        if moved_deeper:
+            # We will find this file when we visit the directory
+            # where it was moved, we will do the replacement
+            # when we are there.
+            continue
         ext = f.rsplit('.')
         try:
             ext = ext[1]

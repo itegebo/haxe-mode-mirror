@@ -34,10 +34,11 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
+;; (eval-when-compile (require 'cl))
 (require 'cl)
 (require 'haxe-log)
 (require 'haxe-project)
+(require 'haxe-help)
 (require 'xml)
 
 (defcustom haxe-completion-method #'haxe-complete-dot-ac
@@ -70,7 +71,7 @@ or auto-completion")
   "The buffer to hold the network process connecting to HaXe compiler server.
 This is needed because otherwise the process get's lost somehow D:")
 
-(defvar received-status 2
+(defvar haxe-received-status 2
   "HaXe compiler will send large completion results in chunks, in order to
 accumulate all received chunks we need sort of a state-machine. This variable
 holds the status of receiving the info.
@@ -78,14 +79,14 @@ holds the status of receiving the info.
 	1 - received last chunk,
 	2 - receiving junk (error messages etc).")
 
-(defvar last-compiler-response nil
+(defvar haxe-last-compiler-response nil
   "This variable is updated by the filter function that reads from the 
 connection to HaXe compiler, it's content is the last response received")
 
 (defvar haxe-eol "\n"
   "The string used as line separator when building commands to HaXe compiler")
 
-(defvar response-terminator "</list>\n"
+(defvar haxe-response-terminator "</list>\n"
   "This variable is set according to the kind of completion we request
 it may be \"</list>\n\" or \"</type>\n\" (first is for dot completion
 the second is for paren hint")
@@ -138,27 +139,28 @@ unless there is only one word in the line")
 (defun haxe-connect-to-compiler-server (&optional wait)
   "Starts HaXe compilations server and connects to it.
 If WAIT is NIL, will try to connect immediately, otherwise will
-wait WAIT seconds."
+wait WAIT seconds.
+This function is bound to \\[haxe-connect-to-compiler-server]"
   (interactive)
   (haxe-start-waiting-server)
   (unless wait (setq wait 0))
   (let ((old-proc (get-process haxe-compiler-process)))
     (if (and old-proc (equal (process-status old-proc) 'open))
-	(setq haxe-network-process old-proc)
+        (setq haxe-network-process old-proc)
       (run-at-time
        wait nil
        #'(lambda ()
-	   (haxe-log 3 "Trying to connect to HaXe compiler on %s:%s"
-		     haxe-server-host haxe-server-port)
-	   (setq haxe-network-process
-		 (make-network-process
-		  :name haxe-compiler-process
-		  :family 'ipv4
-		  :host haxe-server-host
-		  :service haxe-server-port
-		  :buffer haxe-network-process-buffer
-		  :filter #'haxe-listen-filter))
-	   (haxe-log 3 "Connected to HaXe compiler"))))))
+           (haxe-log 3 "Trying to connect to HaXe compiler on %s:%s"
+                     haxe-server-host haxe-server-port)
+           (setq haxe-network-process
+                 (make-network-process
+                  :name haxe-compiler-process
+                  :family 'ipv4
+                  :host haxe-server-host
+                  :service haxe-server-port
+                  :buffer haxe-network-process-buffer
+                  :filter #'haxe-listen-filter))
+           (haxe-log 3 "Connected to HaXe compiler"))))))
 
 (defun haxe-package ()
   "Get the name of the package of the current file"
@@ -177,6 +179,9 @@ wait WAIT seconds."
 (defun haxe-build-cwd ()
   "Builds a part of command for HaXe compiler to change current directory to
 the `project-root'."
+  ;; It's not "/src", when we create the project, there's $source property
+  ;; we then have to save that property somewhere and ONLY use "/src" if
+  ;; we didn't have it.
   (list "--cwd"
 	(concat (expand-file-name (resolve-project-root)) "/src")))
 
@@ -206,53 +211,92 @@ SEPARATOR is used to delimit lines read from the file"
            (file-name-sans-extension (buffer-name)))))
 
 (defun haxe-ac-prefix-matcher ()
-  ;; Need to check if we aren't inside a for (i in x..y) loop
-  (let ((dot-position (re-search-backward "\\.\\(\\s_\\|\\sw\\)*" nil t)))
-    ;; (message "haxe-ac-prefix-matcher searching for prefix... %s"
-    ;; 	     dot-position)
-    (1+ dot-position)))
+  "Loop back until we either find a dot to complete after, or
+find nothing and return nil."
+  (message "haxe-ac-prefix-matcher")
+  (let ((start (point)) (w " ")
+        current seen-white face)
+    (catch 't
+      (while (> start 0)
+        (setf current (char-before start)
+              (aref w 0) current)
+        (cond
+         ((string-match "\\w" w)
+          (when seen-white (throw 't nil)))
+         ((string-match "\\s-" w)
+          (setq seen-white t))
+         ((char-equal current ?.)
+          (setq face (haxe-face-at-point start))
+          (if (and (> start 0)
+                   (not (char-equal (char-before (1- start)) ?.))
+                   (or (null face)
+                       (not (member face
+                                    '(font-lock-string-face
+                                      font-lock-comment-face
+                                      font-lock-preprocessor-face)))))
+              ;; Need to save here, otherwise the compiler
+              ;; will get the old copy of the buffer, which doesn't have
+              ;; the dot.
+              (progn 
+                (save-buffer)
+                (throw 't (1+ start)))
+            (throw 't nil)))
+         (t (throw 't nil)))
+        (decf start)) nil)))
+
+;; (defun haxe-ac-prefix-matcher ()
+;;   ;; Need to check if we aren't inside a for (i in x..y) loop
+;;   (let ((dot-position (re-search-backward "\\.\\(\\s_\\|\\sw\\)*" nil t)))
+;;     (message "haxe-ac-prefix-matcher searching for prefix... %s"
+;;           (1+ dot-position))
+;;     (save-buffer)
+;;     (1+ dot-position)))
 
 (defun haxe-ac-init ()
   "This function is called by `auto-complete' when it starts autocompleting"
-  (message "backward-char %c" (char-before))
-  (if (char-equal (char-before) ?.)
+  (if (and (char-equal (char-before) ?.)
+           (not (char-equal (char-before (1- (point))) ?.))
+           (not (member (haxe-face-at-point)
+                        '(font-lock-string-face
+                          font-lock-comment-face
+                          font-lock-preprocessor-face))))
       (let ((old-proc (get-process haxe-compiler-process)))
-	(when (or (not old-proc)
-		  (not (equal (process-status old-proc) 'open)))
-	  (setq haxe-network-process nil)
-	  (haxe-connect-to-compiler-server)
-	  (sleep-for 1)
-	  (setq old-proc (get-process haxe-compiler-process)))
-	(let ((ac-request
-	       (haxe-build-compile-string
-		(haxe-package) (buffer-file-name))))
-	  (setq haxe-last-ac-candidates nil
-		haxe-last-ac-candidates-filtered nil
-		last-compiler-response nil
-		received-status 2)
-	  (clrhash documentation-hash)
-	  (process-send-string old-proc ac-request)
-	  (process-send-string old-proc "\000")
-	  (process-send-eof old-proc)
-	  (haxe-log 3 "haxe-ac-init sent request: %s\n completing: %s"
-		    ac-request
-		    (substring (buffer-string)
-			       (max (point-min) (- (point) 10))
-			       (point))))
-	(with-local-quit
-	  (with-timeout
-	      (5 (haxe-log 0 "Failing to fetch all completion options, giving up"))
-	    (while (not haxe-last-ac-candidates)
-	      (accept-process-output old-proc)
-	      (haxe-log 3 "statsus: %s"
-			(when last-compiler-response
-			  (concat
-			   (substring last-compiler-response
-				      0 (min (length last-compiler-response) 42)) "...")))
-	      (when (and last-compiler-response (= received-status 2))
-		(if (string= response-terminator "</list>\n")
-		    (haxe-parse-ac-response last-compiler-response)
-		  (haxe-parse-hint-response last-compiler-response)))))))
+        (when (or (not old-proc)
+                  (not (equal (process-status old-proc) 'open)))
+          (setq haxe-network-process nil)
+          (haxe-connect-to-compiler-server)
+          (sleep-for 1)
+          (setq old-proc (get-process haxe-compiler-process)))
+        (let ((ac-request
+               (haxe-build-compile-string
+                (haxe-package) (buffer-file-name))))
+          (setq haxe-last-ac-candidates nil
+                haxe-last-ac-candidates-filtered nil
+                haxe-last-compiler-response nil
+                haxe-received-status 2)
+          (clrhash documentation-hash)
+          (process-send-string old-proc ac-request)
+          (process-send-string old-proc "\000")
+          (process-send-eof old-proc)
+          (haxe-log 3 "haxe-ac-init sent request: %s\n completing: %s"
+                    ac-request
+                    (substring (buffer-string)
+                               (max (point-min) (- (point) 10))
+                               (point))))
+        (with-local-quit
+          (with-timeout
+              (5 (haxe-log 0 "Failing to fetch all completion options, giving up"))
+            (while (not haxe-last-ac-candidates)
+              (accept-process-output old-proc)
+              (haxe-log 3 "statsus: %s"
+                        (when haxe-last-compiler-response
+                          (concat
+                           (substring haxe-last-compiler-response
+                                      0 (min (length haxe-last-compiler-response) 42)) "...")))
+              (when (and haxe-last-compiler-response (= haxe-received-status 2))
+                (if (string= haxe-response-terminator "</list>\n")
+                    (haxe-parse-ac-response haxe-last-compiler-response)
+                  (haxe-parse-hint-response haxe-last-compiler-response)))))))
     (setq completion-requested nil)
     haxe-last-ac-candidates))
 
@@ -260,13 +304,13 @@ SEPARATOR is used to delimit lines read from the file"
   "Builds `project-build-command'"
   (let ((conditionals (haxe-conditional-comps)))
     (concat haxe-eol
-     (mapconcat #'identity (haxe-build-cwd) " ") haxe-eol
-     (mapconcat #'identity (haxe-conditional-comps) " ")
-     (if conditionals haxe-eol "")
-     (mapconcat #'identity (haxe-read-hxml) haxe-eol) haxe-eol
-     (concat "-main " (haxe-class-name pkg) haxe-eol)
-     (concat "--display " temp-file "@"
-	     (number-to-string (1- (point-in-bytes)))) haxe-eol)))
+            (mapconcat #'identity (haxe-build-cwd) " ") haxe-eol
+            (mapconcat #'identity (haxe-conditional-comps) " ")
+            (if conditionals haxe-eol "")
+            (mapconcat #'identity (haxe-read-hxml) haxe-eol) haxe-eol
+            (concat "-main " (haxe-class-name pkg) haxe-eol)
+            (concat "--display " temp-file "@"
+                    (number-to-string (1- (point-in-bytes)))) haxe-eol)))
 
 (defun point-in-bytes ()
   (let ((sub (substring (buffer-string) 0 (point))))
@@ -275,47 +319,61 @@ SEPARATOR is used to delimit lines read from the file"
 (defun haxe-ac-candidates ()
   "Requests autocompletion candidates and returns them"
   ;; (debug)
-  (message "haxe-ac-candidates %s" haxe-last-ac-candidates-filtered)
+  ;; these do exist
+  ;; (message "haxe-last-ac-candidates %s" haxe-last-ac-candidates)
+  (message "haxe-last-ac-candidates-filtered %s" haxe-last-ac-candidates-filtered)
   haxe-last-ac-candidates-filtered)
 
 (defun haxe-completion-filter (prefix candidates &rest rest)
-  (let ((collected (substring (buffer-string) haxe-completion-pos (1- (point)))))
-    (if (string= collected ".")
-	(setq haxe-last-ac-candidates-filtered haxe-last-ac-candidates)
-      (setq haxe-string-to-complete collected
-	    haxe-last-ac-candidates-filtered
-	    (filter-candidates-exact haxe-last-ac-candidates)
-	    ;; (remove-dupes
-	    ;;  (nconc (filter-candidates-exact haxe-last-ac-candidates)
-	    ;; 	  (filter-candidates-sturdy haxe-last-ac-candidates)
-	    ;; 	  (filter-candidates-fuzzy haxe-last-ac-candidates)))
-	    ))
-    (message "haxe-completion-filter %s %s %s %s"
-	     prefix collected haxe-last-ac-candidates-filtered
-	     haxe-last-ac-candidates)
-    haxe-last-ac-candidates-filtered))
+  (message "haxe-completion-filter %s, rest: %s" prefix rest)
+  (when (and (char-equal (char-before (- (point) (length prefix))) ?.)
+             (not (char-equal (char-before (- (point) (1+ (length prefix)))) ?.))
+             (not (member (haxe-face-at-point)
+                          '(font-lock-string-face
+                            font-lock-comment-face
+                            font-lock-preprocessor-face))))
+    (if (= 0 (length prefix))
+        (setq haxe-last-ac-candidates-filtered haxe-last-ac-candidates)
+      (setq haxe-last-ac-candidates-filtered
+            (filter-candidates-exact haxe-last-ac-candidates))))
+  ;; (let ((collected (substring (buffer-string) haxe-completion-pos (1- (point)))))
+  ;;   (if (string= collected ".")
+  ;;       (setq haxe-last-ac-candidates-filtered haxe-last-ac-candidates)
+  ;;     (setq haxe-string-to-complete collected
+  ;;           haxe-last-ac-candidates-filtered
+  ;;           (filter-candidates-exact haxe-last-ac-candidates)
+  ;;           ;; (remove-dupes
+  ;;           ;;  (nconc (filter-candidates-exact haxe-last-ac-candidates)
+  ;;           ;; 	  (filter-candidates-sturdy haxe-last-ac-candidates)
+  ;;           ;; 	  (filter-candidates-fuzzy haxe-last-ac-candidates)))
+  ;;           ))
+  ;;   (message "haxe-completion-filter %s %s %s %s"
+  ;;            prefix collected haxe-last-ac-candidates-filtered
+  ;;            haxe-last-ac-candidates)
+  ;;   haxe-last-ac-candidates-filtered)
+  haxe-last-ac-candidates-filtered)
 
-(defun remove-if! (predicate sequence)
+(defun haxe-remove-if! (predicate sequence)
   "Destructively removes conses that match PREDICATE from SEQUENCE.
 Returns the list of removed conses."
   (let ((processed sequence)
-	processed-head removed
-	removed-tail cons-to-remove)
+        processed-head removed
+        removed-tail cons-to-remove)
     (while processed
       (if (funcall predicate (car processed))
-	  (progn
-	    (setq cons-to-remove processed)
-	    (rplacd processed-head (cdr processed))
-	    (setq processed (cdr processed))
-	    (rplacd cons-to-remove nil)
-	    (if removed 
-		(progn
-		  (rplacd removed-tail cons-to-remove)
-		  (setq removed-tail (cdr removed-tail)))
-	      (setq removed cons-to-remove
-		    removed-tail cons-to-remove)))
-	(setq processed-head processed
-	      processed (cdr processed))))
+          (progn
+            (setq cons-to-remove processed)
+            (rplacd processed-head (cdr processed))
+            (setq processed (cdr processed))
+            (rplacd cons-to-remove nil)
+            (if removed 
+                (progn
+                  (rplacd removed-tail cons-to-remove)
+                  (setq removed-tail (cdr removed-tail)))
+              (setq removed cons-to-remove
+                    removed-tail cons-to-remove)))
+        (setq processed-head processed
+              processed (cdr processed))))
     removed))
 
 (defun haxe-levenstain (in-a in-b &optional dist)
@@ -368,12 +426,12 @@ the `haxe-string-to-complete' to the candidate"
   "Filters CANDIDATES list by matching the exact beginning of every name
 to `haxe-string-to-complete'"
   (let ((result
-	 (remove-if
-	  #'(lambda (x)
-	      (let ((mlen (length haxe-string-to-complete)))
-		(or (< (length x) mlen)
-		    (not (string= (substring x 0 mlen) haxe-string-to-complete)))))
-	  candidates)))
+         (remove-if
+          #'(lambda (x)
+              (let ((mlen (length haxe-string-to-complete)))
+                (or (< (length x) mlen)
+                    (not (string= (substring x 0 mlen) haxe-string-to-complete)))))
+          candidates)))
     (message "filter-candidates-exact result %s" result) result))
 
 (defun filter-candidates-sturdy (candidates)
@@ -387,20 +445,20 @@ respectively."
   (remove-if
    #'(lambda (x)
        (let ((mlen (length haxe-string-to-complete))
-	     parts last)
-	 (dotimes (i (length x))
-	   (let ((current (aref x i)))
-	     (when (or (not last)
-		       (and (char-equal last ?_) (not (char-equal current ?_)))
-		       (and (not (char-equal (upcase last) last))
-			    (char-equal (upcase current) current)))
-	       (setq parts (cons current parts)
-		     last current))))
-	 (if (< mlen (length parts))
-	     (dotimes (i mlen)
-	       (setq last (aref haxe-string-to-complete i))
-	       (unless (char-equal last (aref parts i))
-		 (return t))) nil))) candidates))
+             parts last)
+         (dotimes (i (length x))
+           (let ((current (aref x i)))
+             (when (or (not last)
+                       (and (char-equal last ?_) (not (char-equal current ?_)))
+                       (and (not (char-equal (upcase last) last))
+                            (char-equal (upcase current) current)))
+               (setq parts (cons current parts)
+                     last current))))
+         (if (< mlen (length parts))
+             (dotimes (i mlen)
+               (setq last (aref haxe-string-to-complete i))
+               (unless (char-equal last (aref parts i))
+                 (return t))) nil))) candidates))
 
 (defun filter-candidates-fuzzy (candidates)
   "Filters CANDIDATES list to see if all charactes of
@@ -408,8 +466,8 @@ respectively."
   (remove-if
    #'(lambda (x)
        (dotimes (i (length haxe-string-to-complete))
-	 (unless (position (aref haxe-string-to-complete i) x)
-	   (return t))))
+         (unless (position (aref haxe-string-to-complete i) x)
+           (return t))))
    candidates))
 
 (defun haxe-ac-documentation (symbol)
@@ -417,22 +475,29 @@ respectively."
   (gethash symbol documentation-hash))
 
 (defun haxe-complete-dot-ac ()
-  "Calls HaXe compiler to get completion for properties"
+  "Calls HaXe compiler to get completion for properties.
+This function is bound to \\[haxe-complete-dot-ac]"
   ;; There's one annoying thing about autocompletion, if you select it
   ;; from menu, it will delete the dot...
   (interactive)
   (insert ".")
-  (let ((face (face-at-point)))
-    (unless (equal face 'font-lock-string-face)
-      (setq response-terminator "</list>\n"
+  (let ((face (haxe-face-at-point)))
+    (unless
+        (or (not (char-equal (char-before (1- (point))) ?.))
+            (not (member (haxe-face-at-point)
+                         '(font-lock-string-face
+                           font-lock-comment-face
+                           font-lock-preprocessor-face))))
+      (setq haxe-response-terminator "</list>\n"
             haxe-string-to-complete "."
             haxe-completion-pos (1- (point))
             haxe-last-ac-candidates nil
             haxe-last-ac-candidates-filtered nil
             completion-requested t)
       (save-buffer)
-      (when (fboundp 'auto-complete)
-        (auto-complete (list haxe-ac-dot-sources))))))
+      ;; (when (fboundp 'auto-complete)
+      ;;   (auto-complete (list haxe-ac-dot-sources)))
+      )))
 
 (defun hxc-parse-methods (raw)
   ;; TODO: dummy need to figure out what was this
@@ -470,35 +535,37 @@ respectively."
             (insert (hxc-modify-by-sig sig selection))))))))
 
 (defun haxe-hint-paren ()
-  "Calls HaXe compiler to get hint for function arguments"
+  "Calls HaXe compiler to get hint for function arguments.
+This function is bound to \\[haxe-hint-paren]"
   (interactive)
   (insert "(")
-  (let ((face (face-at-point))
-	found)
+  (let ((face (haxe-face-at-point))
+        found)
     (unless (equal face 'font-lock-string-face)
       (save-excursion
-	(while (and (not (eobp))
-		    (position (char-before) " \t\r\n"))
-	  (backward-char))
-	(unless (eobp)
-	  (backward-char)
-	  (when (equal (face-at-point) 'default)
-	    (setq found t))))
+        (while (and (not (eobp))
+                    (position (char-before) " \t\r\n"))
+          (backward-char))
+        (unless (eobp)
+          (backward-char)
+          (when (equal (haxe-face-at-point) 'default)
+            (setq found t))))
       (when found
-	(setq response-terminator "</type>\n"
-	      completion-requested t)
-	(haxe-ac-init)))))
+        (setq haxe-response-terminator "</type>\n"
+              completion-requested t)
+        (haxe-ac-init)))))
 
 (defun haxe-start-waiting-server ()
   "Starts HaXe `haxe-compiler' on `haxe-server-host':`haxe-server-port'
 with \"--wait\" for the future requests made by autocompletion
-or flymake"
+or flymake.
+This function is bound to \\[haxe-start-waiting-server]"
   (interactive)
   (unless (get-buffer-process "*haxe-waiting-server*")
     (shell-command
      (concat haxe-compiler " --wait "
-	     haxe-server-host ":"
-	     (number-to-string haxe-server-port) "&")
+             haxe-server-host ":"
+             (number-to-string haxe-server-port) "&")
      "*haxe-waiting-server*")))
 
 (defun haxe-parse-ac-response (xml)
@@ -508,32 +575,32 @@ is taken to be the name of the field to complete and their child node
 \"d\" is taken to be the documentation of the field."
   (condition-case var
       (with-temp-buffer
-	(let* ((root (progn (insert xml)
-			    (xml-parse-region (point-min) (point-max))))
-	       (options (car root))
-	       (is (xml-get-children options 'i))
-	       completions
-	       docs)
-	  (dolist (i is completions)
-	    (setq completions
-		  (cons (cdar (xml-node-attributes i)) completions)
-		  docs
-		  (cons (fold-string
-			 (condence-white-string
-			  (replace-all
-			   (trim-string
-			    (car (last (car (xml-get-children i 'd)))))
-			   [?\t] [?\ ])) 42 3 2) docs))
-	    (puthash (car completions)
-		     (concat (car completions) "\n" (car docs))
-		     documentation-hash))
-	  (message "haxe-parse-ac-response dolist done %s" completions)
-	  ;; This is unsafe, in case we fail to parse, we kill flymake too...
-	  (setq completion-requested nil
-		haxe-last-ac-candidates completions)))
+        (let* ((root (progn (insert xml)
+                            (xml-parse-region (point-min) (point-max))))
+               (options (car root))
+               (is (xml-get-children options 'i))
+               completions
+               docs)
+          (dolist (i is completions)
+            (setq completions
+                  (cons (cdar (xml-node-attributes i)) completions)
+                  docs
+                  (cons (haxe-fold-string
+                         (haxe-condence-white-string
+                          (haxe-replace-all
+                           (haxe-trim-string
+                            (car (last (car (xml-get-children i 'd)))))
+                           [?\t] [?\ ])) 42 3 2) docs))
+            (puthash (car completions)
+                     (concat (car completions) "\n" (car docs))
+                     documentation-hash))
+          (message "haxe-parse-ac-response dolist done %s" completions)
+          ;; This is unsafe, in case we fail to parse, we kill flymake too...
+          (setq completion-requested nil
+                haxe-last-ac-candidates completions)))
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 
-(defun replace-all (source search-for replace-with)
+(defun haxe-replace-all (source search-for replace-with)
   "Utility function for making multiple replacements in a string.
 SOURCE is the string to replace in (not modified)
 SEARCH-FOR is an array of characters to search for in SOURCE
@@ -546,19 +613,19 @@ For example (replace-all \"foo/bar/baz.tar.gz\" [?/ ?.] [?\\\\ ?_]) =>
   (with-output-to-string
     (dotimes (i (length source))
       (let* ((current (aref source i))
-	     (pos (position current search-for)))
-	(princ 
-	 (char-to-string
-	  (if pos (aref replace-with pos) current)))))))
+             (pos (position current search-for)))
+        (princ 
+         (char-to-string
+          (if pos (aref replace-with pos) current)))))))
 
-(defun exception-p (first-char second-char exceptions)
+(defun haxe-exception-p (first-char second-char exceptions)
   "Werifies whether the EXCEPTIONS contains a pair (FIRST-CHAR SECOND-CHAR)"
   (dolist (i exceptions)
     (when (and (char-equal (car i) first-char)
                (char-equal (cdr i) second-char))
       (return t))))
 
-(defun read-word (input position delimiters ends exceptions)
+(defun haxe-read-word (input position delimiters ends exceptions)
   "Reads the first word from the INPUT, starting from position. The word
 is a substring that may be terminated by any of the ENDS characters, or
 before any of DELIMITERS characters. However, if the last character of
@@ -572,19 +639,19 @@ and the process is repeated until the next DELIMITER or END is encountered."
         (cond
          ((member char delimiters)
           (if (and (< position (1- (length input)))
-                   (exception-p char (aref input (1+ position)) exceptions))
+                   (haxe-exception-p char (aref input (1+ position)) exceptions))
               (setq word (cons char word))
             (throw 't t)))
          ((member char ends)
           (setq word (cons char word))
           (unless (and (< position (1- (length input)))
-                       (exception-p char (aref input (1+ position)) exceptions))
+                       (haxe-exception-p char (aref input (1+ position)) exceptions))
             (throw 't t)))
          (t (setq word (cons char word))))
         (incf position)))
     (coerce (reverse word) 'string)))
 
-(defun fold-string-words
+(defun haxe-fold-string-words
   (input max-length &optional pad-left pad-right delimiters ends exceptions)
   "Creates a block of text which has no more than MAX-LENGTH characters
 in one line, is padded by PAD-LEFT characters on the left and PAD-RIGHT
@@ -609,7 +676,7 @@ split, unless it is the only word on the line."
         (dotimes (i pad-left)
           (princ " ")
           (incf line-built))
-        (setq word (read-word input pos delimiters ends exceptions))
+        (setq word (haxe-read-word input pos delimiters ends exceptions))
         (if (<= (+ line-built (length word)) (- max-length pad-right))
             (progn
               (princ word)
@@ -655,7 +722,7 @@ Non-interactive callers must not provide PREFIX argument if they wish to
 specify paddings other then 0.
 
 See also `haxe-folding-delimiters', `haxe-folding-terminators',
-`haxe-folding-exceptions' and `fold-string-words'"
+`haxe-folding-exceptions' and `haxe-fold-string-words'"
   (interactive "r\nnHow wide should the created columnbe? \nP")
   (if prefix
       (if (equal prefix 4)
@@ -663,12 +730,12 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
                 pad-right (read-string "Columns to pad on the right: " prefix))
         (setq pad-left prefix pad-right prefix))
     (setq pad-left (or pad-left 0) pad-right (or pad-right 0)))
-  (let ((input (fold-string-words
+  (let ((input (haxe-fold-string-words
                 (buffer-substring start end) width pad-left pad-right)))
     (kill-region start end)
     (insert input)))
 
-(defun fold-string (input max-length &optional pad-left pad-right)
+(defun haxe-fold-string (input max-length &optional pad-left pad-right)
   "Folds string producing lines of maximum MAX-LENGTH length"
   (with-output-to-string
     (unless pad-left (setq pad-left 0))
@@ -676,77 +743,69 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
     (dotimes (i pad-left) (princ " "))
     (let ((offset 0) last-space current last-return)
       (dotimes (i (length input))
-	(setq current (aref input i))
-	(if (= offset max-length)
-	    (progn
-	      (setq last-return t offset 0)
-	      (unless (position current "\t\r\n ")
-		(princ (char-to-string current)))
-	      (dotimes (i pad-right) (princ " "))
-	      (princ "\n")
-	      (dotimes (i pad-left) (princ " ")))
-	  (cond
-	   ((position current "\r\n")
-	    (unless (or last-space last-return)
-	      (princ " ")
-	      (incf offset)
-	      (setq last-return nil)))
-	   ((and (position current "\t ") last-return))
-	   (t (princ (char-to-string current))
-	      (incf offset)
-	      (setq last-return nil))))
-	(setq last-space (position current " \t")))
+        (setq current (aref input i))
+        (if (= offset max-length)
+            (progn
+              (setq last-return t offset 0)
+              (unless (position current "\t\r\n ")
+                (princ (char-to-string current)))
+              (dotimes (i pad-right) (princ " "))
+              (princ "\n")
+              (dotimes (i pad-left) (princ " ")))
+          (cond
+           ((position current "\r\n")
+            (unless (or last-space last-return)
+              (princ " ")
+              (incf offset)
+              (setq last-return nil)))
+           ((and (position current "\t ") last-return))
+           (t (princ (char-to-string current))
+              (incf offset)
+              (setq last-return nil))))
+        (setq last-space (position current " \t")))
       (unless last-return (dotimes (i pad-right) (princ " "))))))
 
-(defun condence-white-string (input)
+(defun haxe-condence-white-string (input)
   "Replaces subsequent white space characters with a single whitespace character"
   (with-output-to-string
     (let (last-space current)
       (dotimes (i (length input))
-	(setq current (aref input i))
-	(unless (and last-space (position current " \t"))
-	  (princ (char-to-string current)))
-	(setq last-space (position current " \t"))))))
+        (setq current (aref input i))
+        (unless (and last-space (position current " \t"))
+          (princ (char-to-string current)))
+        (setq last-space (position current " \t"))))))
 
-(defun trim-string (input &rest characters)
-  ;; FIXME: (trim-string " x ") => ""
+(defun haxe-trim-string (input &rest characters)
   "Removes blanks and CHARACTERS from INPUT on its left and on its right"
   (if input
-      (let ((start 0)
-	    (end (length input))
-	    (mask (concat " \t\r\n" (or characters "")))
-	    (len (1- (length input)))
-	    (result "")
-	    start-found
-	    end-found
-	    current-left
-	    current-right)
-	(dotimes (i (ceiling (/ (length input) 2)) result)
-	  (setq current-left (aref input i)
-		current-right (aref input (- len i)))
-	  (unless start-found
-	    (if (position current-left mask) (incf start)
-	      (setq start-found t)))
-	  (unless end-found
-	    (if (position current-right mask) (decf end)
-	      (setq end-found t)))
-	  (when (and end-found start-found)
-	    (return (setq result (substring input start end)))))) ""))
+      (let ((i 0) (e (- (length input) 2))
+            (mask (concat " \t\r\n" (or characters "")))
+            start-found end-found c ce)
+        (catch 't
+          (while (>= e i)
+            (setq c (aref input i) ce (aref input e))
+            (when (and (not start-found) (not (position c mask)))
+              (setq start-found i))
+            (when (and (not end-found) (not (position ce mask)))
+              (setq end-found e))
+            (when (and start-found end-found)
+              (throw 't (substring input start-found (1+ end-found))))
+            (incf i) (decf e)) "")) ""))
 
 (defun haxe-parse-hint-response (xml)
   "Parses the function hint supplied by HaXe compiler."
   (condition-case var
       (let* ((root (with-temp-buffer
-		     (insert xml)
-		     (xml-parse-region (point-min) (point-max))))
-	     (options (car root))
-	     (signature
-	      (replace-regexp-in-string
-	       "&lt;" "<"
-	       (replace-regexp-in-string
-		"&gt;" ">"
-		(xml-node-children options)))))
-	(message "haxe-parse-hint-response %s" signature))
+                     (insert xml)
+                     (xml-parse-region (point-min) (point-max))))
+             (options (car root))
+             (signature
+              (replace-regexp-in-string
+               "&lt;" "<"
+               (replace-regexp-in-string
+                "&gt;" ">"
+                (xml-node-children options)))))
+        (message "haxe-parse-hint-response %s" signature))
     (setq completion-requested nil)
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 

@@ -57,12 +57,15 @@ documentation."
 
 (defstruct haxe-help-item type string face)
 
-(defun haxe-face-at-point ()
+(defun haxe-face-at-point (&optional position)
   "This is like `face-at-point' except we will only look for faces
 which are relevant to haxe-mode. This will also look under overlays
-created by minor modes like ispel or highlight current line."
+created by minor modes like ispel or highlight current line.
+If POSITION is nil, it is set to POINT."
   (interactive)
-  (let ((props (text-properties-at (point))))
+  (when (null position)
+    (setq position (point)))
+  (let ((props (text-properties-at position)))
     (catch 't
       (while props
         (when (eql (car props) 'face)
@@ -92,7 +95,8 @@ created by minor modes like ispel or highlight current line."
 
 (defun haxe-electric-help (thing &rest args)
   "Provides contextual help for the whatever word the point
-is currently standing at."
+is currently standing at.
+This function is bound to \\[haxe-electric-help]"
   (interactive
    (list
     (read-string
