@@ -92,16 +92,16 @@
 ;; ------------------- my change -------------------------------------
 
 ;; The language constants are needed when compiling.
-(eval-when-compile
-  (let ((load-path
-         (if (and (boundp 'byte-compile-dest-file)
-                  (stringp byte-compile-dest-file))
-             (cons (file-name-directory byte-compile-dest-file) load-path)
-           load-path)))
-    (load "cc-mode" nil t)
-    (load "cc-fonts" nil t)
-    (load "cc-langs" nil t)
-    (load "cc-bytecomp" nil t)))
+;; (eval-when-compile
+;;   (let ((load-path
+;;          (if (and (boundp 'byte-compile-dest-file)
+;;                   (stringp byte-compile-dest-file))
+;;              (cons (file-name-directory byte-compile-dest-file) load-path)
+;;            load-path)))
+;;     (load "cc-mode" nil t)
+;;     (load "cc-fonts" nil t)
+;;     (load "cc-langs" nil t)
+;;     (load "cc-bytecomp" nil t)))
 
 (eval-and-compile
   ;; Tell the language constant system about haXe and base it on Java.
@@ -387,7 +387,7 @@ with HaXe macro metadata." nil)
                   (c-fontify-types-and-refs
                       ((c-promote-possible-types t)
                        (parse-sexp-lookup-properties
-                        (cc-eval-when-compile
+                        (eval-when-compile
                           (boundp 'parse-sexp-lookup-properties))))
                     (save-restriction
                       (narrow-to-region (point) limit)
@@ -859,6 +859,8 @@ once we turn it off")
      1 2 3))
   (flymake-log 3 "HaXe flymake installed")
   (haxe-start-waiting-server)
+  ;; FIXME: This looks like it has to happen after we are connected
+  ;; to the server the server start asynchronously
   (let* ((key "\\.hx\\'")
          (haxeentry (assoc key flymake-allowed-file-name-masks)))
     (if haxeentry
@@ -881,7 +883,7 @@ once we turn it off")
       (setq temp-source-file-name
 	    (flymake-init-create-temp-buffer-copy create-temp-f)
 	    args (flymake-get-syntax-check-program-args
-		  temp-source-file-name (resolve-project-root)
+		  temp-source-file-name (haxe-resolve-project-root)
 		  use-relative-base-dir use-relative-source
 		  get-cmdline-f))
       args)))
@@ -891,7 +893,7 @@ once we turn it off")
 This gets called by flymake itself. The output is a list of two elements:
 the command to run, and a list of arguments.  The resulting command is like:
 
-  $ haxe `(resolve-project-root)'/`build-hxml'
+  $ haxe `(haxe-resolve-project-root)'/`haxe-build-hxml'
 
 "
   (save-buffer)
@@ -902,7 +904,7 @@ the command to run, and a list of arguments.  The resulting command is like:
 	  (concat haxe-server-host ":" (number-to-string haxe-server-port)))
 	 (haxe-build-flymake-list
 	  (haxe-replace-all (substring (file-name-sans-extension (buffer-file-name))
-				  (+ (length (resolve-project-root)) 5)) [?/] [?.])))))
+				  (+ (length (haxe-resolve-project-root)) 5)) [?/] [?.])))))
 
 (defun haxe-flymake-cleanup ()
   "Called by flymake when it needs to cleanup after reporting"
@@ -914,19 +916,6 @@ so that it doesn't kill our files..."
   (make-temp-file
    (file-name-nondirectory
     (file-name-sans-extension file-name)) nil "tmp"))
-
-(defun haxe-identify-project-root ()
-  "Lame attempt at finding the root directory of our project.
-The assumtion is that most people would call it `src', so we 
-climb up the directory tree to see if there's a directory with this
-name on the path and assume the last such instance to be our project
-directory, for example /home/user/projects/foo/src/org/user/utils/Bar.hx
-wil result in /home/user/projects/foo/src/ being selected as the root
-directory"
-  (let* ((current (buffer-file-name))
-	 (pos (string-match "/src/" current)))
-    (when pos
-      (setq project-root (substring current 0 pos)))))
 
 (defun haxe-listen-filter (proc input)
   "Is called by the running HaXe server to report events, if any."
@@ -1046,6 +1035,7 @@ tag information for FILE"
       (shell-command
        (concat haxe-etags-program " \\
 --lang=none --regex='/[ \\t]*class[ \\t]+\\([^ \\t{\\/]+\\)/\\1/' \\
+--regex='/[ \\t]*interface[ \\t]+\\([^ \\t{\\/]+\\)/\\1/' \\
 --regex='/[ \\t]*typedef[ \\t]+\\([^ \\t{\\/=]+\\)/\\1/' \\
 --regex='/[ \\t]*enum[ \\t]+\\([^ \\t{\\/]+\\)/\\1/' \\
 --regex='/[ \\t]*\\(\\(public\\|private\\|static\\|override\\|inline\\)[ \\t]\\)+function[ \\t]\\([^ \\t(]+\\)/\\3/' \\
@@ -1089,8 +1079,8 @@ tag information for FILE"
   (let ((moved 0) current)
     (while (and (not (zerop x)) (not (zerop y)))
       (if (not (zerop y))
-	  (when (position current "\r\n") (decf y))
-	(return (+ moved x)))
+          (when (position current "\r\n") (decf y))
+        (return (+ moved x)))
       (incf moved))))
 
 ;; Commenting to pass compilation w/o warnings
@@ -1145,7 +1135,10 @@ Key bindings:
   (haxe-flymake-install)
   (haxe-identify-project-root)
   (setq compile-command
-        (concat haxe-compiler " " (resolve-project-root) build-hxml))
+        (concat haxe-compiler " "
+                (haxe-resolve-project-root) haxe-build-hxml))
+  ;; make tag search case-insensitive
+  (setq tags-case-fold-search nil)
   (flymake-mode)
   (ad-activate 'flymake-after-change-function)
   (ad-activate 'c-forward-annotation)

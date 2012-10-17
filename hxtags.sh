@@ -14,9 +14,17 @@
 #
 # Where `./src' is the location of your project sources.
 
-find $1 -type f -name "*.hx" | \
+old=`pwd`
+cd $1
+find $1 -type f -name "*.hx" | while read line ;
+do
+    echo "Generating tags for <$line>"
     etags --lang=none --regex='/[ \t]*class[ \t]+\([^ \t{\/]+\)/\1/' \
-    --regex='/[ \t]*typedef[ \t]+\([^ \t{\/=]+\)/\1/' \
-    --regex='/[ \t]*enum[ \t]+\([^ \t{\/]+\)/\1/' \
-    --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)+function[ \t]\([^ \t(]+\)/\3/' \
-    --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)+var[ \t]\([^ \t:=]+\)/\3/' -
+        --regex='/[ \t]*interface[ \t]+\([^ \t{\/]+\)/\1/' \
+        --regex='/[ \t]*typedef[ \t]+\([^ \t{\/=]+\)/\1/' \
+        --regex='/[ \t]*enum[ \t]+\([^ \t{\/]+\)/\1/' \
+        --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)+function[ \t]\([^ \t(]+\)/\3/' \
+        --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)+var[ \t]\([^ \t:=]+\)/\3/' \
+        "$line"
+done
+cd $old

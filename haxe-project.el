@@ -37,22 +37,22 @@
 (eval-when-compile (require 'cl))
 (require 'haxe-log)
 
-(defvar build-hxml "build.hxml"
+(defvar haxe-build-hxml "build.hxml"
   "The name of the nxml file to build the project")
 
 ;; prj-current form eproject
-(defvar project-root "./src/"
+(defvar haxe-project-root "./src/"
   "The name of the project source directory.
 Upon load the value will be replaced with the `src' 
 directory found on the path to the loaded file.
 This is the best I could do for now")
-(make-local-variable 'project-root)
+(make-local-variable 'haxe-project-root)
 
-(defvar project-build-command nil
+(defvar haxe-project-build-command nil
   "This is the command passed to HaXe compiler when the project is compiled
-if not specified, the script searches for it in `project-root'/`build-hxml'")
+if not specified, the script searches for it in `haxe-project-root'/`haxe-build-hxml'")
 
-(defcustom hxtags-location
+(defcustom haxe-hxtags-location
   (concat (file-name-directory load-file-name) "/hxtags.sh")
   "The program for generating TAGS files"
   :type 'string :group 'haxe-mode)
@@ -81,6 +81,10 @@ It is a hash-table with keys being type names (strings) and values being alists
 of the form (FILE-NAME . OFFSET) where FILE-NAME is the name of the source file
 declaring the type and the OFFSET is the position in the file, where this type
 is declared.")
+
+(defvar haxe-project-generator-timer nil
+  "This variable is set by the waiting timer while the projec is being generated
+to the waiting timer")
 
 (defcustom haxe-etags-program "etags"
   "This is the path (or alias) of the etags program. On Linux it is usually preinstalled
@@ -121,26 +125,80 @@ be called with no arguments and it must return an alist containing key-value
 pairs to substitute in the project templates upon project creation."
   :type '(or string function) :group 'haxe-mode)
 
-(defun resolve-project-root ()
+(defun haxe-identify-project-root ()
+  "Lame attempt at finding the root directory of our project.
+The assumtion is that most people would call it `src', so we 
+climb up the directory tree to see if there's a directory with this
+name on the path and assume the last such instance to be our project
+directory, for example /home/user/projects/foo/src/org/user/utils/Bar.hx
+wil result in /home/user/projects/foo/src/ being selected as the root
+directory"
+  (let* ((current (buffer-file-name))
+	 (pos (string-match "/src/" current)))
+    (when pos
+      (setq haxe-project-root (substring current 0 pos)))))
+
+(defun haxe-resolve-project-root ()
   "Used at the time of building the commands involving currnet project directory
 will try first to find the value of `prj-current' (form eproject), if it doesn't
-exist, will return `project-root'."
+exist, will return `haxe-project-root'."
   (if (boundp 'prj-current)
-    (cadr prj-current) project-root))
+    (cadr prj-current) haxe-project-root))
 
-(defun create-haxe-tags (dir-name)
+(defun haxe-create-haxe-tags (dir-name)
   "Create HaXe tags file."
   ;; TODO: we can use haxe -xml here to generate the XML
   ;; and parse it into TAGS file instead.
   (interactive "DDirectory: ")
   (eshell-command 
-   (format "'%s' '%s'" hxtags-location dir-name)))
+   (format "%s %s" (shell-quote-argument haxe-hxtags-location)
+           (shell-quote-argument (expand-file-name dir-name)))))
 
 (defun haxe-project-generator-args (&rest available)
   "Loops over the arguments and removes pairs of arguments if the second
 is NIL. This is needed so we don't pass nills to the generator."
   (loop for (key value) on available by #'cddr
         when value append (list key value)))
+
+(defun haxe-load-project (directory)
+  "Makes project's directory current and loads the project from project.cfg
+ file in the specified directory."
+  (interactive "DProject directory: ")
+  (unless (string=
+           (expand-file-name directory)
+           directory)
+    (setq directory (expand-file-name directory)))
+  (message "opening project in: %s" directory)
+  (cd-absolute directory)
+  (if (boundp 'prj-loadconfig)
+      (progn                            ; I don't know... I don't feel
+                                        ; like encouraging using eproject :/
+                                        ; once we have some CEDET integration
+                                        ; let's just move to EDE and forget it.
+        (require 'eproject)
+        (prj-loadconfig directory))
+    (let (prj-config prj-tools prj-files prj-curfile prj-functions)
+      ;; We'll load this file pretending its been loaded by eproject
+      ;; and simply display the `prj-curfile'. I'm not even sure it's
+      ;; not the project file. If that's not set for w/e reason, just
+      ;; display the contents of the directory we've just created.
+      (load-file "./project.cfg")
+      (if prj-curfile (find-file prj-curfile)
+        directory))))
+
+(defun haxe-wait-generator-finished (directory)
+  "A timer to wait until the generato process finishes to load up
+the generated project"
+  (if (get-buffer-process "*haxe-project-generator*")
+      ;; The generator is still creating the project
+      (progn
+        (when haxe-project-generator-timer
+          (cancel-timer haxe-project-generator-timer))
+        (setq haxe-project-generator-timer
+              (run-at-time
+               1 nil
+               #'haxe-wait-generator-finished directory)))
+    (haxe-load-project directory)))
 
 (defun haxe-create-project (kind project-name destination
                                  &optional entry-point package)
@@ -187,17 +245,19 @@ PACKAGE is the package to place the entry point
             (return-from nil)))))
     (let* ((src (expand-file-name (concat haxe-templates kind "/")))
            (pj-path (concat src haxe-project-generator)))
-      (when (file-exists-p pj-path)
-        (apply #'start-process
-               (append
-                (list pj-path "*haxe-project-generator*" pj-path)
-                (haxe-project-generator-args
-                 "-s" (expand-file-name src)
-                 "-d" (expand-file-name destination)
-                 "-n" project-name
-                 "-e" entry-point
-                 "-p" package
-                 "-l" "+generator.log")))))))
+      (if (file-exists-p pj-path)
+          (apply #'start-process
+                 (append
+                  (list pj-path "*haxe-project-generator*" pj-path)
+                  (haxe-project-generator-args
+                   "-s" (expand-file-name src)
+                   "-d" (expand-file-name destination)
+                   "-n" project-name
+                   "-e" entry-point
+                   "-p" package
+                   "-l" "+generator.log")))
+        (error (format "Project generator script does not exist in <%s>" pj-path)))
+      (haxe-wait-generator-finished (expand-file-name destination)))))
 
 (provide 'haxe-project)
 

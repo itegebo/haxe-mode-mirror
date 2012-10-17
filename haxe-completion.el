@@ -171,7 +171,7 @@ This function is bound to \\[haxe-connect-to-compiler-server]"
       (match-string 1 bs))))
 
 (defun haxe-conditional-comps ()
-  "Reads conditional compilation settings from `build-hxml'"
+  "Reads conditional compilation settings from `haxe-build-hxml'"
   (let ((bs (buffer-string)))
        (when (string-match "hxc:\\s-\\(.*\\)" bs)
 	 (match-string 1 bs))))
@@ -183,16 +183,16 @@ the `project-root'."
   ;; we then have to save that property somewhere and ONLY use "/src" if
   ;; we didn't have it.
   (list "--cwd"
-	(concat (expand-file-name (resolve-project-root)) "/src")))
+	(concat (expand-file-name (haxe-resolve-project-root)) "/src")))
 
 (defun haxe-read-hxml ()
-  "Reads the contents of `project-build-command'
+  "Reads the contents of `haxe-project-build-command'
 SEPARATOR is used to delimit lines read from the file"
   (with-temp-buffer
     (insert-file-contents
-     (if (and build-hxml (resolve-project-root))
-         (concat (file-name-as-directory (resolve-project-root)) build-hxml)
-       (error "You need to specify `project-root' and `build-hxml'")))
+     (if (and haxe-build-hxml (haxe-resolve-project-root))
+         (concat (file-name-as-directory (haxe-resolve-project-root)) haxe-build-hxml)
+       (error "You need to specify `project-root' and `haxe-build-hxml'")))
     (delete-non-matching-lines "^-cp\\|^-lib\\|^-swf")
     (let (result pos)
       (dolist (i (delete-dups (split-string (buffer-string) haxe-eol)))
@@ -201,7 +201,7 @@ SEPARATOR is used to delimit lines read from the file"
 	    (setq result (cons (substring i 0 pos) result)
 		  result (cons (substring i pos) result))
 	  (setq result (cons i result))))
-      (setq project-build-command (mapconcat #'identity result " "))
+      (setq haxe-project-build-command (mapconcat #'identity result " "))
       result)))
 
 (defun haxe-class-name (pkg)
@@ -301,7 +301,7 @@ find nothing and return nil."
     haxe-last-ac-candidates))
 
 (defun haxe-build-compile-string (pkg temp-file)
-  "Builds `project-build-command'"
+  "Builds `haxe-project-build-command'"
   (let ((conditionals (haxe-conditional-comps)))
     (concat haxe-eol
             (mapconcat #'identity (haxe-build-cwd) " ") haxe-eol
@@ -808,6 +808,48 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
         (message "haxe-parse-hint-response %s" signature))
     (setq completion-requested nil)
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
+
+(defun haxe-ensure-directories (path &optional root)
+  (unless (listp path) (setq path (split-string path "/" t)))
+  (unless root (setq root "/"))
+  (unless (null path)
+    (let ((dst (concat root (car path))))
+      (unless (file-exists-p dst)
+        (make-directory dst))
+      (when (cdr path)
+        (setf (cadr path) (concat (car path) "/" (cadr path))))
+      (haxe-ensure-directories (cdr path) root))))
+
+(defun haxe-ensure-completion-file ()
+  "Creates all necessary directories and the file needed for autocompletion and
+returns the absolute file name."
+  (let ((current (buffer-file-name))
+        (content (buffer-string))
+        temp)
+    (unless haxe-project-root
+      (haxe-resolve-project-root))
+    (if (and
+         haxe-project-root
+         (<= (length haxe-project-root) (length current))
+         (string= (substring current 0 (length haxe-project-root))
+                  haxe-project-root))
+        (progn
+          (setq temp
+                (concat
+                 haxe-project-root
+                 "/.completion/"
+                 (substring current
+                            (1+ (length haxe-project-root))
+                            (- (length (file-name-nondirectory current))))))
+          (message "will save temp file in %s" temp)
+          (unless (file-exists-p temp)
+            (haxe-ensure-directories temp))
+          (setq temp (concat temp (file-name-nondirectory current)))
+          (with-temp-file temp
+            (insert content)) temp)
+      (error (format "Didn't know where to create temporary completion file.
+Project root: %s,
+File to complete: %s" haxe-project-root current)))))
 
 (provide 'haxe-completion)
 

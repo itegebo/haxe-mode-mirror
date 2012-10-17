@@ -398,7 +398,7 @@ type_declaration
     ()
   | class_declaration
   | typedef_declaration
-  | interface_declaration
+  ;; | interface_declaration
   | enum_declaration
   ;
 
