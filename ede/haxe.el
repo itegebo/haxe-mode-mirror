@@ -67,8 +67,8 @@ ROOTPROJ is nil, since there is only one project."
 ;;;###autoload
 (ede-add-project-autoload
  (ede-project-autoload "haxe"
-                       :name "HAXE ROOT"
-                       :file 'haxe-mode/ede
+                       :name "haxe-ede-project"
+                       :file 'ede/haxe
                        :proj-file ".haxeproject"
                        :load-type 'haxe-ede-load
                        :class-sym 'haxe-ede-project
@@ -86,6 +86,10 @@ ROOTPROJ is nil, since there is only one project."
           ["Version Control Status" ede-vc-project-directory ede-object]
           "--"
           ["Rescan Project Files" ede-rescan-toplevel t]))
+   (compiler :initarg :compiler
+            :initform "haxe"
+            :type string
+            :documentation "The location of HaXe compiler")
    (std-lib :initarg :std-lib
             :initform "/usr/lib/haxe/std/"
             :type string
