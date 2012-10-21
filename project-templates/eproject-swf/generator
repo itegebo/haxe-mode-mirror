@@ -1,0 +1,170 @@
+#!/usr/bin/env python
+#
+# Below are some variables that will be populated prior to running this script:
+#
+# $source - the source directory (ending with slash) of the temlates for this project
+# $destination - the destination directory (ending with slash) of the project being created.
+# $project - the name of the project being created
+
+from optparse import OptionParser
+from os import path
+from string import Template
+from distutils import dir_util
+import datetime
+import shutil
+import os
+import pwd
+
+parser = OptionParser()
+parser.add_option(
+    '-s', '--source', dest = 'source',
+    help = 'The source directory for templates to generate this project.')
+
+parser.add_option(
+    '-d', '--destination',
+    dest = 'destination',
+    help = 'The directory where the project is being created.')
+
+parser.add_option(
+    '-n', '--name-project',
+    dest = 'project',
+    help = 'The name of the project being created.')
+
+parser.add_option(
+    '-p', '--package',
+    dest = 'package',
+    default = '',
+    help = 'The name of the package to place the entry point.')
+
+parser.add_option(
+    '-e', '--entry-point',
+    dest = 'entry_point',
+    default = 'Main',
+    help = 'The name of the class file containing the entry point.')
+
+parser.add_option(
+    '-a', '--author',
+    dest = 'author',
+    default = pwd.getpwuid(os.getuid()).pw_name,
+    help = 'The author of the project.')
+
+parser.add_option(
+    '-l', '--log',
+    dest = 'log',
+    default = 'generator.log',
+    help = '''Send logging information to output and / or log file.
+The default values is "generator.log" meaning that the generator
+will store info in the generator.log file. Other possible values
+include:
+  +file.name meaning to both print the loggin on standard
+output and into the file "file.name".
+  + meaning to print the logging info on standard output, but
+not printing it into log file.
+  - will neither create the log, nor print information to the
+standard output.''')
+
+(options, args) = parser.parse_args()
+
+def log(pattern, *args):
+    mode = options.log[0]
+    if mode == '+':
+        print pattern % args
+    log_file = options.log[1:]
+    if log_file:
+        log_handle = open(path.join(options.destination, log_file), 'a')
+        log_handle.write(pattern % args)
+        log_handle.close()
+        
+
+now =  datetime.datetime.ctime(datetime.datetime.now())
+if not path.exists(options.destination):
+    os.makedirs(options.destination)
+
+generator = path.abspath(__file__)
+dir_util.copy_tree(
+    options.source, options.destination, update = True)
+os.remove(path.join(options.destination, path.basename(__file__)))
+
+log('''
+Copied a template from: "%s"
+to: "%s"
+This is the project: "%s".
+The main class is: "%s"
+in package: "%s".
+''', options.source,
+    options.destination,
+    options.project,
+    options.entry_point,
+    options.package)
+
+def substitute_path(template):
+    p_path = options.package.replace('.', '/');
+    p_dot = options.package
+    if len(p_path):
+        p_path += '/'
+        p_dot += '.'
+    return template.substitute(
+        source = options.source,
+        project = options.project,
+        destination = options.destination,
+        entry_point = options.entry_point,
+        package = options.package,
+        package_path = p_path,
+        package_dot = p_dot,
+        author = options.author,
+        date = now,
+        generator = generator)
+
+def move_by_template(files, directory, replace_content = False):
+    for f in files:
+        # this is better then startswith() because if there's $entry_point_foo
+        # we won't accidentaly move it.
+        moved_deeper = False
+        if f.partition('.')[0] == '$entry_point' and len(options.package) > 1:
+            p_path = options.package.replace('.', '/')
+            ap_path = path.join(directory, p_path)
+            if not path.exists(ap_path):
+                os.makedirs(ap_path)
+            t = Template(f)
+            target = path.join(directory, f)
+            dst = path.join(ap_path, substitute_path(t))
+            moved_deeper = True
+        else:
+            t = Template(f)
+            target = path.join(directory, f)
+            dst = path.join(directory, substitute_path(t))
+        if dst != target:
+            log('Moving file "%s" to "%s"\n', target, dst)
+            shutil.move(target, dst)
+        if moved_deeper:
+            # We will find this file when we visit the directory
+            # where it was moved, we will do the replacement
+            # when we are there.
+            continue
+        ext = f.rsplit('.')
+        try:
+            ext = ext[1]
+        except IndexError:
+            ext = ''
+        if replace_content and ext in ['hx', 'xml', 'txt', 'hxml', 'cfg', 'html']:
+            replace_file = open(dst, 'r+')
+            # This may become a problem for large files, but
+            # hopefuly, there won't be very large tempaltes
+            log('Making substitutions in file "%s"', dst) 
+            new_content = substitute_path(Template(replace_file.read()))
+            replace_file.truncate(0)
+            replace_file.seek(0)
+            replace_file.write(new_content)
+            replace_file.close()
+
+def move_recursively(directory):
+    for (dirpath, dirnames, filenames) in os.walk(directory):
+        move_by_template(filenames or [], directory, True)
+        move_by_template(dirnames or [], directory)
+        break
+    for (dirpath, dirnames, filenames) in os.walk(directory):
+        for d in dirnames:
+            move_recursively(path.abspath(path.join(directory, d)))
+        break
+
+move_recursively(options.destination)

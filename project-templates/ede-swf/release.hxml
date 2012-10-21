@@ -1,0 +1,5 @@
+-main $package_dot$entry_point
+-swf-version 10
+-swf-header 800:600:31
+-cp ${destination}src
+-swf ${destination}bin/$project.swf

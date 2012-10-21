@@ -39,18 +39,24 @@
 
 (defvar haxe-build-hxml "build.hxml"
   "The name of the nxml file to build the project")
+(make-local-variable 'haxe-build-hxml)
 
-;; prj-current form eproject
-(defvar haxe-project-root "./src/"
+;; prj-directory form eproject
+(defvar haxe-project-root "./"
   "The name of the project source directory.
 Upon load the value will be replaced with the `src' 
 directory found on the path to the loaded file.
 This is the best I could do for now")
 (make-local-variable 'haxe-project-root)
 
+(defvar haxe-project-sources '("./src/")
+  "This is a list of all sources of the current project")
+(make-local-variable 'haxe-project-sources)
+
 (defvar haxe-project-build-command nil
   "This is the command passed to HaXe compiler when the project is compiled
 if not specified, the script searches for it in `haxe-project-root'/`haxe-build-hxml'")
+(make-local-variable 'haxe-project-build-command)
 
 (defcustom haxe-hxtags-location
   (concat (file-name-directory load-file-name) "/hxtags.sh")
@@ -133,20 +139,53 @@ name on the path and assume the last such instance to be our project
 directory, for example /home/user/projects/foo/src/org/user/utils/Bar.hx
 wil result in /home/user/projects/foo/src/ being selected as the root
 directory"
+  (setq haxe-project-root nil)
   (let* ((current (buffer-file-name))
-	 (pos (string-match "/src/" current)))
-    (when pos
-      (setq haxe-project-root (substring current 0 pos)))))
+         (pos (string-match "/src/" current))
+         (dir (file-name-directory current)))
+    (when (require 'eproject nil 'noerror)
+      ;; In case we discover that eproject is used, first try
+      ;; to find it's configuration file, perhaps if it was
+      ;; created by us, it will have `prj-directory' set to
+      ;; our project root. If it's not set, assume that the
+      ;; directory containing the project file is the project
+      ;; root. If the "project.cfg" doesn't exist, proceed
+      ;; with guessing. Require the 'eproject in case someone
+      ;; so we can access the variables it declares safely.
+      (catch 't
+        (while (position ?\/ dir)
+          (when (file-exists-p (concat dir "project.cfg"))
+            (if (boundp 'prj-directory)
+                (progn
+                  ;; (eproject-open (concat dir "project.cfg"))
+                  ;; The eproject code cannot handle opening project
+                  ;; files. It assumes that the project file must have been
+                  ;; registered in some central repository. It is
+                  ;; extremely inconvenient, and the project's own
+                  ;; sources are a mess, no comments, single-letter variable
+                  ;; names and so on. I don't want to waste time trying
+                  ;; to figure out how to use it. This is the minimum
+                  ;; I could have done. Once we have EDE this code will
+                  ;; be removed.
+                  (make-local-variable 'prj-directory)
+                  (load-file (concat dir "project.cfg"))
+                  (setq prj-directory (expand-file-name (or prj-directory dir)))
+                  (throw 't (setq haxe-project-root prj-directory)))
+              (throw 't nil)))
+          (setq dir (file-name-directory (directory-file-name dir))))))
+    (when (and (null haxe-project-root) pos)
+      (setq haxe-project-root (substring current 0 pos)))
+    haxe-project-root))
 
 (defun haxe-resolve-project-root ()
   "Used at the time of building the commands involving currnet project directory
-will try first to find the value of `prj-current' (form eproject), if it doesn't
+will try first to find the value of `prj-directory' (from eproject), if it doesn't
 exist, will return `haxe-project-root'."
-  (if (boundp 'prj-current)
-    (cadr prj-current) haxe-project-root))
+  (if (boundp 'prj-directory)
+      prj-directory haxe-project-root))
 
 (defun haxe-create-haxe-tags (dir-name)
-  "Create HaXe tags file."
+  "Creates HaXe tags file."
   ;; TODO: we can use haxe -xml here to generate the XML
   ;; and parse it into TAGS file instead.
   (interactive "DDirectory: ")
@@ -162,42 +201,61 @@ is NIL. This is needed so we don't pass nills to the generator."
 
 (defun haxe-load-project (directory)
   "Makes project's directory current and loads the project from project.cfg
- file in the specified directory."
+file in the specified directory.
+This function is bound to \\[haxe-load-project]"
   (interactive "DProject directory: ")
   (unless (string=
            (expand-file-name directory)
            directory)
     (setq directory (expand-file-name directory)))
-  (message "opening project in: %s" directory)
   (cd-absolute directory)
-  (if (boundp 'prj-loadconfig)
+  (if (require 'eproject nil t)
       (progn                            ; I don't know... I don't feel
                                         ; like encouraging using eproject :/
                                         ; once we have some CEDET integration
                                         ; let's just move to EDE and forget it.
-        (require 'eproject)
-        (prj-loadconfig directory))
+                                        ; Actually, screw it, it's a Pandora
+                                        ; box. If you went so far as this comment
+                                        ; just don't use eproject - will make
+                                        ; you life easier :)
+        (make-local-variable 'prj-directory)
+        (when (fboundp 'prj-loadconfig)
+          (prj-loadconfig
+           (list "maybe-project-name?"
+                 directory
+                 (concat directory "project.cfg"))))
+        ;; (assert (and (boundp 'prj-curfile) prj-curfile)
+        ;;         nil "prj-curfile did not exist after the project was loaded")
+        (find-file (if (and (boundp 'prj-curfile) prj-curfile)
+                       (car prj-curfile) directory)))
     (let (prj-config prj-tools prj-files prj-curfile prj-functions)
       ;; We'll load this file pretending its been loaded by eproject
       ;; and simply display the `prj-curfile'. I'm not even sure it's
       ;; not the project file. If that's not set for w/e reason, just
       ;; display the contents of the directory we've just created.
+      ;; Some insanity goes on with these directories. It's just broken
+      ;; don't use it.
+      (defvar prj-directory)
+      (make-local-variable 'prj-directory)
       (load-file "./project.cfg")
-      (if prj-curfile (find-file prj-curfile)
-        directory))))
+      (find-file
+       (if prj-curfile
+           (if (consp prj-curfile)
+               (car prj-curfile) prj-curfile))
+       directory))))
 
 (defun haxe-wait-generator-finished (directory)
   "A timer to wait until the generato process finishes to load up
 the generated project"
+  (when haxe-project-generator-timer
+    (cancel-timer haxe-project-generator-timer))
+  (message "Waiting to open project directory <%s>" directory)
   (if (get-buffer-process "*haxe-project-generator*")
       ;; The generator is still creating the project
-      (progn
-        (when haxe-project-generator-timer
-          (cancel-timer haxe-project-generator-timer))
-        (setq haxe-project-generator-timer
-              (run-at-time
-               1 nil
-               #'haxe-wait-generator-finished directory)))
+      (setq haxe-project-generator-timer
+            (run-at-time
+             1 nil
+             #'haxe-wait-generator-finished directory))
     (haxe-load-project directory)))
 
 (defun haxe-create-project (kind project-name destination
@@ -210,14 +268,16 @@ DESTINATION is the directory where the new project is created
 ENTRY-POINT is the name of the entry point class (and file) of the new project
   if you don't specify it, the generator will use its own judgement
 PACKAGE is the package to place the entry point
- if you don't specify it, the entry point is created in the top-level package."
+ if you don't specify it, the entry point is created in the top-level package.
+This function is bound to \\[haxe-create-project]"
   (interactive
    (let ((i-kind
-          (completing-read
-           "What kind of project should I create? "
-           haxe-project-kinds nil t
-           (car haxe-project-kinds))))
-     (message "Kind? %s" i-kind)
+          (or (when (boundp '*dynamic-project-kind)
+                *dynamic-project-kind)
+              (completing-read
+               "What kind of project should I create? "
+               haxe-project-kinds nil t
+               (car haxe-project-kinds)))))
      (if (and i-kind (not (string= "" i-kind)))
          (let ((i-name (read-string "What should I call it? "))
                (i-destination
@@ -246,18 +306,38 @@ PACKAGE is the package to place the entry point
     (let* ((src (expand-file-name (concat haxe-templates kind "/")))
            (pj-path (concat src haxe-project-generator)))
       (if (file-exists-p pj-path)
-          (apply #'start-process
-                 (append
-                  (list pj-path "*haxe-project-generator*" pj-path)
-                  (haxe-project-generator-args
-                   "-s" (expand-file-name src)
-                   "-d" (expand-file-name destination)
-                   "-n" project-name
-                   "-e" entry-point
-                   "-p" package
-                   "-l" "+generator.log")))
+          (progn
+            ;; It may happen here that we are trying to call on `start-process'
+            ;; in a non-existing directory, in which case Emacs will error,
+            ;; let's just move into our generator directory, that one must
+            ;; certainly exist
+            (cd-absolute (file-name-directory pj-path))
+            (apply #'start-process
+                   (append
+                    (list pj-path "*haxe-project-generator*" pj-path)
+                    (haxe-project-generator-args
+                     "-s" (expand-file-name src)
+                     "-d" (expand-file-name destination)
+                     "-n" project-name
+                     "-e" entry-point
+                     "-p" package
+                     "-l" "+generator.log"))))
         (error (format "Project generator script does not exist in <%s>" pj-path)))
       (haxe-wait-generator-finished (expand-file-name destination)))))
+
+;;;###autoload
+(defun haxe-create-ede-project (kind)
+  "Creates an EDE project from a corresponding project template. Most of what this
+function does is handled by the `haxe-create-project' function, this one only
+determines the kind of the project.
+This function is bound to \\[haxe-create-project]"
+  (interactive
+   ;; Need a dedicated variable for ede-project kinds, but will do for now.
+   (list
+    (completing-read
+     "Project's entry point: " '("ede-swf") nil t "ede-sfw")))
+  (let ((*dynamic-project-kind kind))
+    (call-interactively #'haxe-create-project)))
 
 (provide 'haxe-project)
 

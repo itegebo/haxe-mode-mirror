@@ -34,7 +34,6 @@
 
 ;;; Code:
 
-;; (eval-when-compile (require 'cl))
 (require 'cl)
 (require 'haxe-log)
 (require 'haxe-project)
@@ -107,7 +106,7 @@ with auto-complete")
 save the last result returnded from a request for completion sent to
 HaXe compiler. This variable is set automatically, don't change it")
 
-(defvar documentation-hash (make-hash-table :test #'equal)
+(defvar haxe-documentation-hash (make-hash-table :test #'equal)
   "We store here the documentation strings for the last completion requested")
 
 (defvar haxe-last-ac-candidates-filtered nil
@@ -119,7 +118,7 @@ HaXe compiler. This variable is set automatically, don't change it")
 (defvar haxe-completion-pos -1
   "The position the completion started recording")
 
-(defvar completion-requested nil
+(defvar haxe-completion-requested nil
   "This variable is set to T when dot autocompletion starts")
 
 (defvar haxe-folding-delimiters '(?\ ?\t ?\n)
@@ -135,6 +134,13 @@ HaXe compiler. This variable is set automatically, don't change it")
     (?\? . ?\]) (?\? . ?\.) (?\? . ?\!) (?\? . ?\?))
   "Character pairs that should not be split, when word-wrapping a region,
 unless there is only one word in the line")
+
+(defvar haxe-last-completion-file nil
+  "This variable is set when we try to ensure that the temporary file
+required for the completion exists. If this variable is not NIL, while
+creating of the new temporary file, the old one will be removed. This is
+needed so we don't eventually feed the compiler the old sources from the
+completion directory")
 
 (defun haxe-connect-to-compiler-server (&optional wait)
   "Starts HaXe compilations server and connects to it.
@@ -237,8 +243,10 @@ find nothing and return nil."
               ;; Need to save here, otherwise the compiler
               ;; will get the old copy of the buffer, which doesn't have
               ;; the dot.
-              (progn 
-                (save-buffer)
+              (progn
+                (haxe-ensure-completion-file)
+                ;; we need to calculate this distance in bytes,
+                ;; not characters iirc for HaXe (not the auto-complete)
                 (throw 't (1+ start)))
             (throw 't nil)))
          (t (throw 't nil)))
@@ -269,12 +277,13 @@ find nothing and return nil."
           (setq old-proc (get-process haxe-compiler-process)))
         (let ((ac-request
                (haxe-build-compile-string
-                (haxe-package) (buffer-file-name))))
+                (haxe-package)
+                (file-name-nondirectory (haxe-ensure-completion-file)))))
           (setq haxe-last-ac-candidates nil
                 haxe-last-ac-candidates-filtered nil
                 haxe-last-compiler-response nil
                 haxe-received-status 2)
-          (clrhash documentation-hash)
+          (clrhash haxe-documentation-hash)
           (process-send-string old-proc ac-request)
           (process-send-string old-proc "\000")
           (process-send-eof old-proc)
@@ -297,7 +306,7 @@ find nothing and return nil."
                 (if (string= haxe-response-terminator "</list>\n")
                     (haxe-parse-ac-response haxe-last-compiler-response)
                   (haxe-parse-hint-response haxe-last-compiler-response)))))))
-    (setq completion-requested nil)
+    (setq haxe-completion-requested nil)
     haxe-last-ac-candidates))
 
 (defun haxe-build-compile-string (pkg temp-file)
@@ -309,6 +318,7 @@ find nothing and return nil."
             (if conditionals haxe-eol "")
             (mapconcat #'identity (haxe-read-hxml) haxe-eol) haxe-eol
             (concat "-main " (haxe-class-name pkg) haxe-eol)
+            (concat "-cp " (haxe-resolve-project-root) ".completion")
             (concat "--display " temp-file "@"
                     (number-to-string (1- (point-in-bytes)))) haxe-eol)))
 
@@ -472,7 +482,7 @@ respectively."
 
 (defun haxe-ac-documentation (symbol)
   "Requests documentation for SYMBOL from HaXe complier and returns it"
-  (gethash symbol documentation-hash))
+  (gethash symbol haxe-documentation-hash))
 
 (defun haxe-complete-dot-ac ()
   "Calls HaXe compiler to get completion for properties.
@@ -493,7 +503,7 @@ This function is bound to \\[haxe-complete-dot-ac]"
             haxe-completion-pos (1- (point))
             haxe-last-ac-candidates nil
             haxe-last-ac-candidates-filtered nil
-            completion-requested t)
+            haxe-completion-requested t)
       (save-buffer)
       ;; (when (fboundp 'auto-complete)
       ;;   (auto-complete (list haxe-ac-dot-sources)))
@@ -552,7 +562,7 @@ This function is bound to \\[haxe-hint-paren]"
             (setq found t))))
       (when found
         (setq haxe-response-terminator "</type>\n"
-              completion-requested t)
+              haxe-completion-requested t)
         (haxe-ac-init)))))
 
 (defun haxe-start-waiting-server ()
@@ -593,10 +603,10 @@ is taken to be the name of the field to complete and their child node
                            [?\t] [?\ ])) 42 3 2) docs))
             (puthash (car completions)
                      (concat (car completions) "\n" (car docs))
-                     documentation-hash))
+                     haxe-documentation-hash))
           (message "haxe-parse-ac-response dolist done %s" completions)
           ;; This is unsafe, in case we fail to parse, we kill flymake too...
-          (setq completion-requested nil
+          (setq haxe-completion-requested nil
                 haxe-last-ac-candidates completions)))
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 
@@ -806,7 +816,7 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
                 "&gt;" ">"
                 (xml-node-children options)))))
         (message "haxe-parse-hint-response %s" signature))
-    (setq completion-requested nil)
+    (setq haxe-completion-requested nil)
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 
 (defun haxe-ensure-directories (path &optional root)
@@ -834,19 +844,24 @@ returns the absolute file name."
          (string= (substring current 0 (length haxe-project-root))
                   haxe-project-root))
         (progn
+          (when haxe-last-completion-file
+            (when (file-exists-p haxe-last-completion-file)
+              (delete-file haxe-last-completion-file))
+            (setq haxe-last-completion-file nil))
           (setq temp
                 (concat
                  haxe-project-root
-                 "/.completion/"
+                 ".completion/"
                  (substring current
                             (1+ (length haxe-project-root))
                             (- (length (file-name-nondirectory current))))))
           (message "will save temp file in %s" temp)
           (unless (file-exists-p temp)
             (haxe-ensure-directories temp))
-          (setq temp (concat temp (file-name-nondirectory current)))
-          (with-temp-file temp
-            (insert content)) temp)
+          (setq haxe-last-completion-file
+                (concat temp (file-name-nondirectory current)))
+          (with-temp-file haxe-last-completion-file
+            (insert content)) haxe-last-completion-file)
       (error (format "Didn't know where to create temporary completion file.
 Project root: %s,
 File to complete: %s" haxe-project-root current)))))

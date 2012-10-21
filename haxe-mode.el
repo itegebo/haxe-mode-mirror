@@ -89,6 +89,8 @@
 (require 'haxe-project)
 (require 'haxe-completion)
 (require 'haxe-log)
+(require 'custom/create-project)
+(require 'ede/haxe)
 ;; ------------------- my change -------------------------------------
 
 ;; The language constants are needed when compiling.
@@ -871,8 +873,8 @@ once we turn it off")
 
 (defun haxe-flymake-init ()
   "initialize flymake for HaXe."
-  (message "haxe-flymake-init completion-requested %s" completion-requested)
-  (unless completion-requested
+  (message "haxe-flymake-init completion-requested %s" haxe-completion-requested)
+  (unless haxe-completion-requested
     (let ((create-temp-f 'haxe-flymake-create-temp-intemp)
 	  (use-relative-base-dir nil)
 	  (use-relative-source nil)
@@ -926,7 +928,7 @@ so that it doesn't kill our files..."
       (haxe-log 3 "HaXe compiler sends no input")
       (when (= haxe-received-status 2)
 	(setq haxe-last-compiler-response "No input"
-	      completion-requested nil)
+	      haxe-completion-requested nil)
 	(return-from nil)))
      ((and (= haxe-received-status 2) (not (null input))
 	   input (char-equal (aref input 0) ?<))
@@ -938,7 +940,7 @@ so that it doesn't kill our files..."
 		haxe-last-compiler-response input)
 	(progn
 	  (setq haxe-last-compiler-response "Wrong tag"
-		completion-requested nil)
+		haxe-completion-requested nil)
 	  (haxe-log 3 "Received wrong result, expected %s, received %s"
 		    (substring haxe-response-terminator 0 -1) input)
 	  (return-from nil))))

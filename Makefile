@@ -14,13 +14,16 @@ DOCS = ./haxe.texi
 	$(IC) $(ICO) -o $(DOCDIR)/$*.info $*.texi
 
 default: prepare byte-compile document
-	cp -r *.el Makefile README hxtags.sh yasnippets project-templates ac-haxe ${PACKAGE}
+	cp -r *.el haxe.texi Makefile README hxtags.sh yasnippets \
+project-templates ac-haxe wisent custom ede TAGS ${PACKAGE}
 
 prepare:
 	mkdir -p ${PACKAGE}
 	mkdir -p ${DOCDIR}
 
 byte-compile:
+	emacs -Q -L . -batch -f batch-byte-compile ./custom/*.el
+	emacs -Q -L . -batch -f batch-byte-compile ./ede/*.el
 	emacs -Q -L . -batch -f batch-byte-compile *.el
 
 clean:
@@ -33,8 +36,10 @@ install:
 
 document: $(DOCS:.texi=.info)
 
-tar.bz2: package
+tar.bz2: default
 	tar cjf ${PACKAGE}.tar.bz2 ${PACKAGE}
 
-zip: package
+zip: default
 	zip -r ${PACKAGE}.zip ${PACKAGE}
+
+package: tar.bz2 zip
