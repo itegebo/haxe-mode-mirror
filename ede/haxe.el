@@ -37,22 +37,22 @@ You may place arbitrary Lisp forms in your project too. The project
 is loaded by `load-file' function so that whatever Emacs Lisp code
 is in the project it will be executed."
   (let ((compiler "haxe")
-        (version [0 0])
+        (version "0.0")
         (file (expand-file-name ".haxeproject" dir))
         name std-lib haxelib lib hxml)
     (load-file file)
     (unless name (error "Invalid project file, missing \"name\""))
-    (haxe-ede-project
-     name
-     :name name
-     :version version
-     :directory (file-name-as-directory dir)
-     :compiler compiler
-     :std-lib std-lib
-     :haxelib haxelib
-     :file file
-     :lib lib
-     :hxml hxml)))
+    (make-instance 'haxe-ede-project
+                   name
+                   :name name
+                   :version version
+                   :directory (file-name-as-directory dir)
+                   :compiler compiler
+                   :std-lib std-lib
+                   :haxelib haxelib
+                   :file file
+                   :lib lib
+                   :hxml hxml)))
 
 ;;;###autoload
 (defun haxe-ede-load (dir &optional rootproj)

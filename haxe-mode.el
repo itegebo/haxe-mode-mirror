@@ -85,6 +85,7 @@
 (require 'flymake)
 (require 'xml)
 (require 'ehelp)
+(require 'speedbar nil t)
 (require 'haxe-help)
 (require 'haxe-project)
 (require 'haxe-completion)
@@ -1003,37 +1004,28 @@ when autocompletion is in progress"
 	(delete-process proc)
 	(haxe-log 3 "Disconnecting from HaXe compiler server")))))
 
-(defun haxe-try-set-ecb-outlines ()
-  "See if ECB is installed and tell it to use `speedbar-fetch-dynamic-tags'
-to parse HaXe outlines in the current buffer. This is hack-ish, because we
-locally rebind (or at least I hope that that is what we do) 
-`speedbar-fetch-dynamic-imenu' to `haxe-parse-tags'. There is probably an
-easier way to do the same thing. If you find it - let me know."
-  (when (boundp 'ecb-non-semantic-parsing-function)
-    (haxe-log 0 "Enabling ECB outline support")
-    (make-local-variable #'speedbar-fetch-dynamic-imenu)
-    ;; TODO: This has to be buffer-local
-    (fset #'speedbar-fetch-dynamic-imenu #'haxe-parse-tags)))
+(when (featurep 'speedbar)
+  (make-local-variable 'speedbar-dynamic-tags-function-list)
+  (speedbar-add-supported-extension ".hx")
+  (setq speedbar-dynamic-tags-function-list
+        '((haxe-fetch-dynamic-tags . haxe-insert-tag-list)))
+  (message "added speedbar handlers"))
 
-    ;; speedbar-insert-imenu-list
-    ;; speedbar-insert-etags-list
-    ;; (setq ecb-process-non-semantic-files t
-    ;; 	  speedbar-use-imenu-flag nil
-    ;; 	  ecb-non-semantic-parsing-function
-    ;; 	  '(haxe-mode . haxe-parse-tags))
-    ;; (append-to-list speedbar-dynamic-tags-function-list
-    ;; 		    '(haxe-parse-tags . semantic-sb-insert-tag-table))
+(defun haxe-insert-tag-list (level list)
+  (message "need to insert: %s at %d" list level)
+  ;; (speedbar-insert-imenu-list level list)
+  (speedbar-insert-etags-list level list))
 
-(defun haxe-parse-tags (file)
+(defun haxe-fetch-dynamic-tags (file)
   "Calls `haxe-etags-program' with specially crafter arguments to obtain
 tag information for FILE"
+  (message "haxe-fetch-dynamic-tags called")
   (let ((buff-contents (buffer-string))
-	(x 0) (y 0)
-	newlist line word type)
+        (x 0) (y 0)
+        newlist line word type)
     (save-excursion
-      (when (get-buffer "*haxe-tags-parser*")
-	(kill-buffer "*haxe-tags-parser*"))
-      (set-buffer (get-buffer-create "*haxe-tags-parser*"))
+      (switch-to-buffer (get-buffer-create " *haxe-tags-parser*"))
+      (erase-buffer)
       (shell-command
        (concat haxe-etags-program " \\
 --lang=none --regex='/[ \\t]*class[ \\t]+\\([^ \\t{\\/]+\\)/\\1/' \\
@@ -1042,40 +1034,40 @@ tag information for FILE"
 --regex='/[ \\t]*enum[ \\t]+\\([^ \\t{\\/]+\\)/\\1/' \\
 --regex='/[ \\t]*\\(\\(public\\|private\\|static\\|override\\|inline\\)[ \\t]\\)+function[ \\t]\\([^ \\t(]+\\)/\\3/' \\
 --regex='/[ \\t]*\\(\\(public\\|private\\|static\\|override\\|inline\\)[ \\t]\\)+var[ \\t]\\([^ \\t:=]+\\)/\\3/' \\
--o - " (expand-file-name file)) "*haxe-tags-parser*")
+-o - " (expand-file-name file)) " *haxe-tags-parser*")
       (goto-char (point-min))
       (forward-line)
       (while (not (eobp))
-	(forward-line)
-	(beginning-of-line-text 1)
-	(setq type nil)
-	(while (not (eolp))
-	  (setq word (thing-at-point 'symbol))
-	  (cond
-	   ((null word))
-	   ((or (string= word "class")
-		(string= word "function") 
-		(string= word "var")
-		(string= word "enum")
-		(string= word "typedef"))
-	    (setq type (concat word " ")))
-	   ((or (string= word "private")
-		(string= word "public")
-		(string= word "override")
-		(string= word "static")
-		(string= word "inline")))
-	   (t (move-end-of-line nil)
-	      (backward-word)
-	      (setq newlist
-		    (cons (cons
-			   (concat type " " word)
-			   (1+ (string-to-number (thing-at-point 'symbol)))) newlist))
-	      (move-end-of-line nil)))
-	  (forward-word)))
+        (forward-line)
+        (beginning-of-line-text 1)
+        (setq type nil)
+        (while (not (eolp))
+          (setq word (thing-at-point 'symbol))
+          (cond
+           ((null word))
+           ((or (string= word "class")
+                (string= word "function") 
+                (string= word "var")
+                (string= word "enum")
+                (string= word "typedef"))
+            (setq type (concat word " ")))
+           ((or (string= word "private")
+                (string= word "public")
+                (string= word "override")
+                (string= word "static")
+                (string= word "inline")))
+           (t (move-end-of-line nil)
+              (backward-word)
+              (setq newlist
+                    (cons (cons
+                           (concat type " " word)
+                           (1+ (string-to-number (thing-at-point 'symbol)))) newlist))
+              (move-end-of-line nil)))
+          (forward-word)))
       (if (and (boundp 'speedbar-sort-tags)
                speedbar-sort-tags)
-	  (sort newlist (lambda (a b) (string< (car a) (car b))))
-	(reverse newlist)))))
+          (sort newlist (lambda (a b) (string< (car a) (car b))))
+        (reverse newlist)))))
 
 (defun haxe-calculate-offset-from-vector (y x string)
   (let ((moved 0) current)
@@ -1153,7 +1145,7 @@ Key bindings:
     (when (boundp 'ac-sources)
       (add-to-list 'ac-sources 'haxe-ac-dot-sources)))
   (add-hook 'kill-buffer-hook 'haxe-kill-network-process)
-  (haxe-try-set-ecb-outlines)
+  ;; (haxe-try-set-ecb-outlines)
   ;; ---------------------------- end my changes ----------------------
   (run-hooks 'c-mode-common-hook 'haxe-mode-hook)
   (c-update-modeline))
