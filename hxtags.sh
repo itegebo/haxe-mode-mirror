@@ -14,17 +14,28 @@
 #
 # Where `./src' is the location of your project sources.
 
-old=`pwd`
-cd $1
-find $1 -type f -name "*.hx" | while read line ;
-do
-    echo "Generating tags for <$line>"
+# some fixes were submitted by Amit Patel (the script would be generating
+# only tags for the last source otherwise)
+old=$(pwd)
+
+# default to current directory
+new=${1:-.}
+cd "$new"
+
+# note -- the substitution $filenames will fail if there are spaces in filenames
+filenames=$(find "$new" -type f -name "*.hx")
+
+# make sure some files were found before writing TAGS
+if [ -z "$filenames" ]; then
+    echo "Error: no .hx files found in $new" >&2
+else
     etags --lang=none --regex='/[ \t]*class[ \t]+\([^ \t{\/]+\)/\1/' \
         --regex='/[ \t]*interface[ \t]+\([^ \t{\/]+\)/\1/' \
         --regex='/[ \t]*typedef[ \t]+\([^ \t{\/=]+\)/\1/' \
         --regex='/[ \t]*enum[ \t]+\([^ \t{\/]+\)/\1/' \
-        --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)+function[ \t]\([^ \t(]+\)/\3/' \
-        --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)+var[ \t]\([^ \t:=]+\)/\3/' \
-        "$line"
-done
-cd $old
+        --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)*function[ \t]\([^ \t(]+\)/\3/' \
+        --regex='/[ \t]*\(\(public\|private\|static\|override\|inline\)[ \t]\)*var[ \t]\([^ \t:=]+\)/\3/' \
+        $filenames
+fi
+
+cd "$old"
