@@ -314,7 +314,7 @@ find nothing and return nil."
   (let ((conditionals (haxe-conditional-comps)))
     (concat haxe-eol
             (mapconcat #'identity (haxe-build-cwd) " ") haxe-eol
-            (mapconcat #'identity (haxe-conditional-comps) " ")
+            (mapconcat #'identity conditionals " ")
             (if conditionals haxe-eol "")
             (mapconcat #'identity (haxe-read-hxml) haxe-eol) haxe-eol
             (concat "-main " (haxe-class-name pkg) haxe-eol)
