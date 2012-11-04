@@ -92,6 +92,7 @@
 (require 'haxe-log)
 (require 'custom/create-project)
 (require 'ede/haxe)
+(require 'ede/haxe-speedbar)
 ;; ------------------- my change -------------------------------------
 
 ;; The language constants are needed when compiling.

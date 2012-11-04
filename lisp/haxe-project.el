@@ -37,6 +37,13 @@
 (eval-when-compile (require 'cl))
 (require 'haxe-log)
 
+(defvar haxe-install-dir
+  (file-name-directory
+   (substring
+    (file-name-directory load-file-name) 0 -1))
+  "Where haxe-mode is installed, the source-files will be in the ./lisp
+directory, i.e. a child directory of it")
+
 (defvar haxe-build-hxml "build.hxml"
   "The name of the nxml file to build the project")
 (make-local-variable 'haxe-build-hxml)
@@ -59,12 +66,12 @@ if not specified, the script searches for it in `haxe-project-root'/`haxe-build-
 (make-local-variable 'haxe-project-build-command)
 
 (defcustom haxe-hxtags-location
-  (concat (file-name-directory load-file-name) "/hxtags.sh")
+  (concat haxe-install-dir "scripts/hxtags.sh")
   "The program for generating TAGS files"
   :type 'string :group 'haxe-mode)
 
 (defcustom haxe-templates
-  (concat (file-name-directory load-file-name) "/project-templates/")
+  (concat haxe-install-dir "project-templates/")
   "The location of project templates (this would be the directory named
 project-templates under the directory where you installed haxe-mode."
   :type 'string :group 'haxe-mode)

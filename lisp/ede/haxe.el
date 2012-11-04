@@ -1,5 +1,4 @@
 (require 'ede)
-(require 'haxe-project)
 
 (defvar haxe-ede-project-list nil
   "List of projects created by option `haxe-ede-project'.")
@@ -21,7 +20,7 @@ DIR is the directory to search from."
 from whatever we loaded.
 The project file may contain set these variables:
   * name - the name of the project (mandatory)
-  * version - the project version (defaults to [0 0])
+  * version - the project version (defaults to \"0.0\")
   * compiler - the location of HaXe compiler (dfaults to \"haxe\")
   * std-lib - the location of Std library (defaults to nil)
   * haxelib - the location of haxelib (defaults to nil)

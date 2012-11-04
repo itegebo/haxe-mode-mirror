@@ -2,39 +2,39 @@
 # and bytecode compilation of *.el files
 
 PACKAGE = haxe-mode
-DOCDIR = ${PACKAGE}/docs
-BIN = $(PWD)/bin
+DOCDST = ${PACKAGE}/docs
+DOCSRC = ${PACKAGE}/info
 IC = makeinfo
 ICO = --force
-DOCS = ./haxe.texi
+TEXI = $(wildcard $(DOCSRC)/*.texi)
+INFO = $(addprefix $(DOCDST)/,$(notdir $(TEXI:.texi=.info)))
 
-.SUFFIXES: .texi .info
+$(DOCDST)/%.info: $(DOCSRC)/%.texi
+	$(IC) $(ICO) -o $@ $<
 
-.texi.info:
-	$(IC) $(ICO) -o $(DOCDIR)/$*.info $*.texi
-
-default: prepare byte-compile document
-	cp -r *.el haxe.texi Makefile README hxtags.sh yasnippets \
-project-templates ac-haxe wisent custom ede TAGS ${PACKAGE}
+default: prepare byte-compile $(INFO)
+	cp -r lisp info Makefile README scripts yasnippets \
+project-templates ac-haxe ${PACKAGE}
 
 prepare:
 	mkdir -p ${PACKAGE}
-	mkdir -p ${DOCDIR}
+	mkdir -p ${DOCDST}
 
 byte-compile:
-	emacs -Q -L . -batch -f batch-byte-compile ./custom/*.el
-	emacs -Q -L . -batch -f batch-byte-compile ./ede/*.el
-	emacs -Q -L . -batch -f batch-byte-compile *.el
+	emacs -Q -L ./lisp -batch -f batch-byte-compile ./lisp/custom/*.el
+	emacs -Q -L ./lisp -batch -f batch-byte-compile ./lisp/ede/*.el
+	emacs -Q -L ./lisp -batch -f batch-byte-compile ./lisp/*.el
 
 clean:
-	rm -f *.elc
+	rm -f ./lisp/*.elc
+	rm -f ./lisp/custom/*.elc
+	rm -f ./lisp/ede/*.elc
+	rm -rf ${DOCDST}
 	rm -rf ${PACKAGE}
 
-# I don't quite understand this...
+# We don't have an install script yet
 install:
 	emacs -Q -L . -batch -l etc/install ${DIR}
-
-document: $(DOCS:.texi=.info)
 
 tar.bz2: default
 	tar cjf ${PACKAGE}.tar.bz2 ${PACKAGE}
