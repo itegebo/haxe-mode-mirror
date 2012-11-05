@@ -150,7 +150,19 @@ directory"
   (let* ((current (buffer-file-name))
          (pos (string-match "/src/" current))
          (dir (file-name-directory current)))
-    (when (require 'eproject nil 'noerror)
+    (when (require 'ede nil 'noerror)
+      ;; Let's try to search for the `ede' project first.
+      (message "about to check for haxe-ede-project-of-file")
+      (let ((maybe-ede-project (haxe-ede-project-of-file current)))
+        (message "maybe-ede-project found? %s" maybe-ede-project)
+        (when maybe-ede-project
+          ;; TODO: There are more useful things we need to set here,
+          ;; once we have ede project
+          (setq haxe-project-root (oref maybe-ede-project directory)
+                haxe-build-hxml
+                (concat (oref maybe-ede-project configuration-default) ".hxml")
+                haxe-compiler (oref maybe-ede-project compiler)))))
+    (when (and (null haxe-project-root) (require 'eproject nil 'noerror))
       ;; In case we discover that eproject is used, first try
       ;; to find it's configuration file, perhaps if it was
       ;; created by us, it will have `prj-directory' set to
@@ -189,7 +201,8 @@ directory"
 will try first to find the value of `prj-directory' (from eproject), if it doesn't
 exist, will return `haxe-project-root'."
   (if (boundp 'prj-directory)
-      prj-directory haxe-project-root))
+      (or prj-directory haxe-project-root)
+    haxe-project-root))
 
 (defun haxe-create-haxe-tags (dir-name)
   "Creates HaXe tags file."
@@ -329,7 +342,7 @@ This function is bound to \\[haxe-create-project]"
                      "-e" entry-point
                      "-p" package
                      "-l" "+generator.log"))))
-        (error (format "Project generator script does not exist in <%s>" pj-path)))
+        (error "Project generator script does not exist in <%s>" pj-path))
       (haxe-wait-generator-finished (expand-file-name destination)))))
 
 ;;;###autoload

@@ -189,7 +189,7 @@ the `project-root'."
   ;; we then have to save that property somewhere and ONLY use "/src" if
   ;; we didn't have it.
   (list "--cwd"
-	(concat (expand-file-name (haxe-resolve-project-root)) "/src")))
+	(concat (expand-file-name (haxe-resolve-project-root)))))
 
 (defun haxe-read-hxml ()
   "Reads the contents of `haxe-project-build-command'
@@ -247,10 +247,10 @@ find nothing and return nil."
                 (haxe-ensure-completion-file)
                 ;; we need to calculate this distance in bytes,
                 ;; not characters iirc for HaXe (not the auto-complete)
-                (throw 't (1+ start)))
+                (throw 't (incf start)))
             (throw 't nil)))
          (t (throw 't nil)))
-        (decf start)) nil)))
+        (decf start)) start)))
 
 ;; (defun haxe-ac-prefix-matcher ()
 ;;   ;; Need to check if we aren't inside a for (i in x..y) loop
@@ -262,52 +262,47 @@ find nothing and return nil."
 
 (defun haxe-ac-init ()
   "This function is called by `auto-complete' when it starts autocompleting"
-  (if (and (char-equal (char-before) ?.)
-           (not (char-equal (char-before (1- (point))) ?.))
-           (not (member (haxe-face-at-point)
-                        '(font-lock-string-face
-                          font-lock-comment-face
-                          font-lock-preprocessor-face))))
-      (let ((old-proc (get-process haxe-compiler-process)))
-        (when (or (not old-proc)
-                  (not (equal (process-status old-proc) 'open)))
-          (setq haxe-network-process nil)
-          (haxe-connect-to-compiler-server)
-          (sleep-for 1)
-          (setq old-proc (get-process haxe-compiler-process)))
-        (let ((ac-request
-               (haxe-build-compile-string
-                (haxe-package)
-                (file-name-nondirectory (haxe-ensure-completion-file)))))
-          (setq haxe-last-ac-candidates nil
-                haxe-last-ac-candidates-filtered nil
-                haxe-last-compiler-response nil
-                haxe-received-status 2)
-          (clrhash haxe-documentation-hash)
-          (process-send-string old-proc ac-request)
-          (process-send-string old-proc "\000")
-          (process-send-eof old-proc)
-          (haxe-log 3 "haxe-ac-init sent request: %s\n completing: %s"
-                    ac-request
-                    (substring (buffer-string)
-                               (max (point-min) (- (point) 10))
-                               (point))))
-        (with-local-quit
-          (with-timeout
-              (5 (haxe-log 0 "Failing to fetch all completion options, giving up"))
-            (while (not haxe-last-ac-candidates)
-              (accept-process-output old-proc)
-              (haxe-log 3 "statsus: %s"
-                        (when haxe-last-compiler-response
-                          (concat
-                           (substring haxe-last-compiler-response
-                                      0 (min (length haxe-last-compiler-response) 42)) "...")))
-              (when (and haxe-last-compiler-response (= haxe-received-status 2))
-                (if (string= haxe-response-terminator "</list>\n")
-                    (haxe-parse-ac-response haxe-last-compiler-response)
-                  (haxe-parse-hint-response haxe-last-compiler-response)))))))
-    (setq haxe-completion-requested nil)
-    haxe-last-ac-candidates))
+  (message "haxe-ac-init")
+  (let ((old-proc (get-process haxe-compiler-process)))
+    (when (or (not old-proc)
+              (not (equal (process-status old-proc) 'open)))
+      (setq haxe-network-process nil)
+      (haxe-connect-to-compiler-server)
+      (sleep-for 1)
+      (setq old-proc (get-process haxe-compiler-process)))
+    (let ((ac-request
+           (haxe-build-compile-string
+            (haxe-package)
+            (file-name-nondirectory (haxe-ensure-completion-file)))))
+      (setq haxe-last-ac-candidates nil
+            haxe-last-ac-candidates-filtered nil
+            haxe-last-compiler-response nil
+            haxe-received-status 2)
+      (clrhash haxe-documentation-hash)
+      (process-send-string old-proc ac-request)
+      (process-send-string old-proc "\000")
+      (process-send-eof old-proc)
+      (message "sent to process: <%s>" ac-request)
+      (haxe-log 3 "haxe-ac-init sent request: %s\n completing: %s"
+                ac-request
+                (substring (buffer-string)
+                           (max (point-min) (- (point) 10))
+                           (point))))
+    (with-local-quit
+      (with-timeout
+          (5 (haxe-log 0 "Failing to fetch all completion options, giving up"))
+        (while (not haxe-last-ac-candidates)
+          (accept-process-output old-proc)
+          (haxe-log 3 "statsus: %s"
+                    (when haxe-last-compiler-response
+                      (concat
+                       (substring haxe-last-compiler-response
+                                  0 (min (length haxe-last-compiler-response) 42)) "...")))
+          (when (and haxe-last-compiler-response (= haxe-received-status 2))
+            (if (string= haxe-response-terminator "</list>\n")
+                (haxe-parse-ac-response haxe-last-compiler-response)
+              (haxe-parse-hint-response haxe-last-compiler-response)))))))
+  haxe-last-ac-candidates)
 
 (defun haxe-build-compile-string (pkg temp-file)
   "Builds `haxe-project-build-command'"
@@ -318,7 +313,7 @@ find nothing and return nil."
             (if conditionals haxe-eol "")
             (mapconcat #'identity (haxe-read-hxml) haxe-eol) haxe-eol
             (concat "-main " (haxe-class-name pkg) haxe-eol)
-            (concat "-cp " (haxe-resolve-project-root) ".completion")
+            (concat "-cp " (haxe-resolve-project-root) ".completion") haxe-eol
             (concat "--display " temp-file "@"
                     (number-to-string (1- (point-in-bytes)))) haxe-eol)))
 

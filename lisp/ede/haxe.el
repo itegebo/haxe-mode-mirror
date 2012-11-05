@@ -3,7 +3,7 @@
 (defvar haxe-ede-project-list nil
   "List of projects created by option `haxe-ede-project'.")
 
-(defun haxe-ede-file-existing (dir)
+(defun haxe-ede-project-for-directory (dir)
   "Find a HaXe project in the list of HaXe projects.
 DIR is the directory to search from."
   (let ((projs haxe-ede-project-list)
@@ -13,7 +13,26 @@ DIR is the directory to search from."
         (when (string-match (concat "^" (regexp-quote root)) dir)
           (setq ans (car projs))))
       (setq projs (cdr projs)))
+    ;; This will happen if we created the project in a non-interactive
+    ;; way. The project won't be registered / loaded, but the project
+    ;; file may exist.
+    (unless ans
+      (when (file-exists-p (concat dir ".haxeproject"))
+        (setq ans (haxe-ede-project-data dir))))
     ans))
+
+(defun haxe-ede-project-of-file (file)
+  "Traverse the directories of the FILE all the way up to the root
+and see if the file belongs in any known HaXe project, if it does,
+return the project it belongs to, return nil, if it doesn't."
+  (let ((path-parts (split-string (expand-file-name file) "/"))
+        path project)
+    (while (and path-parts (not project))
+      ;; TODO: Not really crossplatform... 
+      (setq path (format "%s/" (mapconcat #'identity path-parts "/"))
+            project (haxe-ede-project-for-directory path)
+            path-parts (reverse (cdr (reverse path-parts)))))
+    project))
 
 (defun haxe-ede-project-data (dir)
   "Load the project settings and create a new `haxe-ede-project'
@@ -25,6 +44,8 @@ The project file may contain set these variables:
   * std-lib - the location of Std library (defaults to nil)
   * haxelib - the location of haxelib (defaults to nil)
   * lib - the location of HaXe libraries (such as swf format, svg format etc)
+  * sources - the list of source directories of this project (usually the
+    `haxe-project-root'/src).
   * hxml - the list of *.hxml files to use in this project. Each such file
     is assigned to a certain kind of compilation to do. Once you are working
     with the project, you can set either hxml file as a current one, so that
@@ -38,7 +59,7 @@ is in the project it will be executed."
   (let ((compiler "haxe")
         (version "0.0")
         (file (expand-file-name ".haxeproject" dir))
-        name std-lib haxelib lib hxml)
+        name std-lib haxelib lib sources hxml)
     (load-file file)
     (unless name (error "Invalid project file, missing \"name\""))
     (make-instance 'haxe-ede-project
@@ -51,6 +72,7 @@ is in the project it will be executed."
                    :haxelib haxelib
                    :file file
                    :lib lib
+                   :sources sources
                    :hxml hxml)))
 
 ;;;###autoload
@@ -59,7 +81,7 @@ is in the project it will be executed."
 Return nil if there isn't one.
 Argument DIR is the directory it is created for.
 ROOTPROJ is nil, since there is only one project."
-  (or (haxe-ede-file-existing dir)
+  (or (haxe-ede-project-for-directory dir)
       ;; Doesn't already exist, so lets make one.
       (ede-add-project-to-global-list (haxe-ede-project-data dir))))
 
@@ -101,6 +123,11 @@ ROOTPROJ is nil, since there is only one project."
         :initform "/usr/lib/haxe/lib/"
         :type string
         :documentation "The location of HaXe library (swf format, svg format etc.)")
+   (sources :intiarg :sources
+            :intifrom nil
+            :type list
+            :documentation "All source DIRECTORIES used in this project (what would fit
+-cp compiler argument")
    (hxml :initarg :hxml
          :initform nil
          :type list

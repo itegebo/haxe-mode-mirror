@@ -1,29 +1,141 @@
 
-/usr/lib/haxe/std/flash/Vector.hx,1019
-class flash.Vector<T> 25,797
-public static inline function <T>ofArray::v:(ofArray.T)->v:(ofArray.T) 26,829
-public static inline function <T,U>convert::v:(convert.T)->v:(convert.T) 30,937
+haxe-completion.el,2405
+(defcustom haxe-completion-method 43,1287
+(defcustom haxe-compiler 50,1641
+(defcustom haxe-server-host 54,1739
+(defcustom haxe-server-port 58,1856
+(defvar haxe-compiler-process 62,1985
+(defvar haxe-network-process 66,2125
+(defvar haxe-network-process-buffer 69,2228
+(defvar haxe-received-status 73,2442
+(defvar haxe-last-compiler-response 81,2764
+(defvar haxe-eol 85,2951
+(defvar haxe-response-terminator 88,3053
+(defvar haxe-ac-dot-sources93,3271
+(defvar haxe-last-ac-candidates 104,3605
+(defvar haxe-documentation-hash 109,3848
+(defvar haxe-last-ac-candidates-filtered 112,3992
+(defvar haxe-string-to-complete 115,4111
+(defvar haxe-completion-pos 118,4205
+(defvar haxe-completion-requested 121,4288
+(defvar haxe-folding-delimiters 124,4389
+(defvar haxe-folding-terminators 127,4500
+(defvar haxe-folding-exceptions130,4636
+(defvar haxe-last-completion-file 138,5032
+(defun haxe-connect-to-compiler-server 145,5381
+(defun haxe-package 171,6460
+(defun haxe-conditional-comps 179,6769
+(defun haxe-build-cwd 185,6974
+(defun haxe-read-hxml 194,7352
+(defun haxe-class-name 213,8164
+(defun haxe-ac-prefix-matcher 219,8378
+(defun haxe-ac-init 263,10140
+(defun haxe-build-compile-string 312,12562
+(defun point-in-bytes 325,13203
+(defun haxe-ac-candidates 329,13331
+(defun haxe-completion-filter 337,13637
+(defun haxe-remove-if! 366,15199
+(defun haxe-levenstain 389,16062
+(defun fliter-candidates-levenstain 420,17417
+(defun filter-candidates-exact 435,18065
+(defun filter-candidates-sturdy 447,18548
+(defun filter-candidates-fuzzy 473,19684
+(defun haxe-ac-documentation 483,20030
+(defun haxe-complete-dot-ac 487,20185
+(defun hxc-parse-methods 512,21173
+(defun hxc-modify-by-sig 516,21259
+(defun hxc-lookup-help 520,21330
+(defun hxc-msg 524,21406
+(defun hxc-lookup-signature 528,21461
+(defun haxe-complete-dot-ido 532,21542
+(defun haxe-hint-paren 547,22103
+(defun haxe-start-waiting-server 568,22776
+(defun haxe-parse-ac-response 581,23265
+(defun haxe-replace-all 613,24799
+(defun haxe-exception-p 631,25532
+(defun haxe-read-word 638,25811
+(defun haxe-fold-string-words664,27036
+(defun haxe-pad-region 724,29706
+(defun haxe-fold-string 748,30936
+(defun haxe-condence-white-string 778,32151
+(defun haxe-trim-string 788,32560
+(defun haxe-parse-hint-response 805,33293
+(defun haxe-ensure-directories 822,33969
+(defun haxe-ensure-completion-file 833,34383
 
-/home/wvxvw/Projects/x/src/Main.hx,1440
-class Main 33,1219
-static function main::Void 46,1357
-function init::Void 41,1291
-function new::Void 36,1252
+haxe-help.el,749
+(defcustom haxe-help-location39,1159
+(defcustom haxe-help-language 44,1336
+(defcustom haxe-help-url 49,1486
+(defcustom haxe-help-url-builder 53,1649
+(defstruct haxe-help-item 58,1870
+(defun haxe-face-at-point 60,1915
+(defun haxe-string-at-point 84,2909
+(defun haxe-electric-help 96,3221
+(defun haxe-number-binary 152,5557
+(defun haxe-color-string 158,5688
+(defun haxe-display-number 165,5846
+(defun haxe-string-to-charcodes 188,6514
+(defun haxe-string-to-u-string 195,6697
+(defun haxe-string-to-html-string 200,6833
+(defun haxe-string-to-x-string 205,6972
+(defun haxe-display-string 217,7369
+(defun haxe-display-basic-help 229,7969
+(defun haxe-wiki-help 233,8089
+(defun haxe-google-help 239,8334
+(defun haxe-online-help 248,8680
 
-/usr/lib/haxe/std/flash/Boot.hx,6770
-class flash.Boot 53,1902
-public static function skip_constructor:: 54,1922
-public static function enum_to_string::e:((String) | ((*))) | e:String 86,2751
-public static function __instanceof::v:Bool | v:*->v:* 95,3000
-public static function __clear_trace::Void 105,3196
-public static function __set_trace_color::rgb:Void | rgb:UInt 113,3330
-public static function getTrace::flash.text.TextField 119,3447
-public static function __trace::v:Void | v:* | v:haxe.PosInfos 147,4190
-public static function __string_rec::v:String->v:String | v:* 162,4686
-static function __unprotect__::s:String->s:String 206,5658
-function init::Void 82,2696
-function doInitDelay::_:* | _:Void 77,2526
-function start::Void 56,1959
-public function new::Void 48,3519
-class flash._Boot.RealBoot 37,1613
-function new::Void 38,1624
+haxe-log.el,60
+(defcustom haxe-log-level 37,1121
+(defun haxe-log 42,1285
+
+haxe-mode.el,1101
+(defconst haxe-font-lock-keywords-1 294,9139
+(defconst haxe-font-lock-keywords-2 297,9250
+(defconst haxe-font-lock-keywords-3 300,9365
+(defvar haxe-font-lock-keywords 303,9484
+(defvar haxe-mode-syntax-table 306,9595
+(defvar haxe-mode-abbrev-table 312,9803
+(defvar haxe-mode-map 322,10272
+(defadvice c-forward-annotation340,10898
+(defadvice c-beginning-of-macro359,11461
+(defadvice c-forward-decl-or-cast-1485,17570
+(defcustom haxe-std-library 850,33044
+(defvar old-flymake-after-change-function 854,33181
+(defun haxe-flymake-install 858,33314
+(defun haxe-flymake-init 876,34013
+(defun haxe-flymake-get-cmdline 895,34705
+(defun haxe-flymake-cleanup 913,35347
+(defun haxe-flymake-create-temp-intemp 917,35470
+(defun haxe-listen-filter 924,35719
+(defun haxe-build-flymake-list 977,37721
+(defadvice flymake-after-change-function989,38016
+(defun haxe-kill-network-process 995,38271
+(defun haxe-insert-tag-list 1015,39011
+(defun haxe-fetch-dynamic-tags 1020,39191
+(defun haxe-calculate-offset-from-vector 1073,41398
+(defcustom haxe-mode-hook 1088,41923
+(defun haxe-mode 1093,42014
+
+haxe-project.el,838
+(defvar haxe-install-dir40,1241
+(defvar haxe-build-hxml 47,1466
+(defvar haxe-project-root 52,1626
+(defvar haxe-project-sources 59,1883
+(defvar haxe-project-build-command 63,2027
+(defcustom haxe-hxtags-location68,2281
+(defcustom haxe-templates73,2439
+(defcustom haxe-project-kinds79,2692
+(defvar haxe-project-type-table 91,3146
+(defvar haxe-project-generator-timer 98,3545
+(defcustom haxe-etags-program 102,3691
+(defcustom haxe-project-generator 107,3929
+(defcustom haxe-project-args 133,5308
+(defun haxe-identify-project-root 141,5717
+(defun haxe-resolve-project-root 187,8189
+(defun haxe-create-haxe-tags 194,8501
+(defun haxe-project-generator-args 203,8847
+(defun haxe-load-project 209,9131
+(defun haxe-wait-generator-finished 254,11335
+(defun haxe-create-project 268,11906
+(defun haxe-create-ede-project 336,15178
