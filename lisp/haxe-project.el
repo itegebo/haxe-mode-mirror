@@ -56,7 +56,7 @@ directory found on the path to the loaded file.
 This is the best I could do for now")
 (make-local-variable 'haxe-project-root)
 
-(defvar haxe-project-sources '("./src/")
+(defvar haxe-project-sources `(,(expand-file-name "./src/"))
   "This is a list of all sources of the current project")
 (make-local-variable 'haxe-project-sources)
 
@@ -161,7 +161,8 @@ directory"
           (setq haxe-project-root (oref maybe-ede-project directory)
                 haxe-build-hxml
                 (concat (oref maybe-ede-project configuration-default) ".hxml")
-                haxe-compiler (oref maybe-ede-project compiler)))))
+                haxe-compiler (oref maybe-ede-project compiler)
+                haxe-project-sources (oref maybe-ede-project sources)))))
     (when (and (null haxe-project-root) (require 'eproject nil 'noerror))
       ;; In case we discover that eproject is used, first try
       ;; to find it's configuration file, perhaps if it was

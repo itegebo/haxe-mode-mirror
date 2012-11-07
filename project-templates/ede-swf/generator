@@ -146,11 +146,12 @@ def move_by_template(files, directory, replace_content = False):
             ext = ext[1]
         except IndexError:
             ext = ''
-        if replace_content and ext in ['hx', 'xml', 'txt', 'hxml', 'cfg', 'html']:
+        if replace_content and ext in \
+           ['hx', 'xml', 'txt', 'hxml', 'cfg', 'html', 'haxeproject']:
             replace_file = open(dst, 'r+')
             # This may become a problem for large files, but
             # hopefuly, there won't be very large tempaltes
-            log('Making substitutions in file "%s"', dst) 
+            log('Making substitutions in file "%s"\n', dst) 
             new_content = substitute_path(Template(replace_file.read()))
             replace_file.truncate(0)
             replace_file.seek(0)

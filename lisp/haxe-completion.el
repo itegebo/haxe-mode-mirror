@@ -260,6 +260,11 @@ find nothing and return nil."
 ;;     (save-buffer)
 ;;     (1+ dot-position)))
 
+(defun haxe--relative-path (file)
+  (let ((source (haxe--source-dir-of-file file)))
+    (if source (substring file (length source))
+      file)))
+
 (defun haxe-ac-init ()
   "This function is called by `auto-complete' when it starts autocompleting"
   (message "haxe-ac-init")
@@ -273,7 +278,9 @@ find nothing and return nil."
     (let ((ac-request
            (haxe-build-compile-string
             (haxe-package)
-            (file-name-nondirectory (haxe-ensure-completion-file)))))
+            (progn
+              (haxe-ensure-completion-file)
+              (haxe--relative-path (buffer-file-name))))))
       (setq haxe-last-ac-candidates nil
             haxe-last-ac-candidates-filtered nil
             haxe-last-compiler-response nil
@@ -315,7 +322,7 @@ find nothing and return nil."
             (concat "-main " (haxe-class-name pkg) haxe-eol)
             (concat "-cp " (haxe-resolve-project-root) ".completion") haxe-eol
             (concat "--display " temp-file "@"
-                    (number-to-string (1- (point-in-bytes)))) haxe-eol)))
+                    (number-to-string (point-in-bytes))) haxe-eol)))
 
 (defun point-in-bytes ()
   (let ((sub (substring (buffer-string) 0 (point))))
@@ -825,19 +832,29 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
         (setf (cadr path) (concat (car path) "/" (cadr path))))
       (haxe-ensure-directories (cdr path) root))))
 
+(defun haxe--source-dir-of-file (file)
+  (let ((file (expand-file-name file))
+        (sources haxe-project-sources)
+        prefix result)
+    (while (and (not result) sources)
+      (let ((s (car sources)))
+        (when (>= (length file) (length s))
+          (setq prefix (substring file 0 (length s)))
+          (when (string= prefix s)
+            (setq result s)))))
+    result))
+
 (defun haxe-ensure-completion-file ()
   "Creates all necessary directories and the file needed for autocompletion and
 returns the absolute file name."
-  (let ((current (buffer-file-name))
-        (content (buffer-string))
-        temp)
+  (let* ((current (expand-file-name (buffer-file-name)))
+         (content (buffer-string))
+         (source-dir (haxe--source-dir-of-file current))
+         temp)
     (unless haxe-project-root
       (haxe-resolve-project-root))
-    (if (and
-         haxe-project-root
-         (<= (length haxe-project-root) (length current))
-         (string= (substring current 0 (length haxe-project-root))
-                  haxe-project-root))
+    (message "ensured project root")
+    (if (and haxe-project-root source-dir)
         (progn
           (when haxe-last-completion-file
             (when (file-exists-p haxe-last-completion-file)
@@ -847,8 +864,7 @@ returns the absolute file name."
                 (concat
                  haxe-project-root
                  ".completion/"
-                 (substring current
-                            (1+ (length haxe-project-root))
+                 (substring current (length source-dir)
                             (- (length (file-name-nondirectory current))))))
           (message "will save temp file in %s" temp)
           (unless (file-exists-p temp)
@@ -857,9 +873,10 @@ returns the absolute file name."
                 (concat temp (file-name-nondirectory current)))
           (with-temp-file haxe-last-completion-file
             (insert content)) haxe-last-completion-file)
-      (error (format "Didn't know where to create temporary completion file.
-Project root: %s,
-File to complete: %s" haxe-project-root current)))))
+      (error "Didn't know where to create temporary completion file.
+Project root: <%s>,
+File to complete: <%s>
+Soure directory: <%s>" haxe-project-root current source-dir))))
 
 (provide 'haxe-completion)
 

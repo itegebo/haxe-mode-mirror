@@ -123,10 +123,10 @@ ROOTPROJ is nil, since there is only one project."
         :initform "/usr/lib/haxe/lib/"
         :type string
         :documentation "The location of HaXe library (swf format, svg format etc.)")
-   (sources :intiarg :sources
+   (sources :initarg :sources
             :intifrom nil
             :type list
-            :documentation "All source DIRECTORIES used in this project (what would fit
+            :documentation "All source DIRECTORIES used in this project: what would fit
 -cp compiler argument")
    (hxml :initarg :hxml
          :initform nil
