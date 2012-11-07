@@ -1,0 +1,483 @@
+default namespace = ""
+namespace ns1 = "http://hxswfml.googlecode.com"
+namespace xsi = "http://www.w3.org/2001/XMLSchema-instance"
+
+start =
+  element swf {
+    attribute compressed { xsd:boolean }?,
+    attribute fps { xsd:integer }?,
+    attribute frameCount { xsd:integer }?,
+    attribute height { xsd:integer }?,
+    attribute version { xsd:integer }?,
+    attribute width { xsd:integer }?,
+    element FileAttributes {
+      attribute actionscript3 { xsd:boolean }?,
+      attribute hasMetaData { xsd:boolean }?,
+      attribute useDirectBlit { xsd:boolean }?,
+      attribute useGPU { xsd:boolean }?,
+      attribute useNetwork { xsd:boolean }?
+    }?,
+    element SetBackgroundColor {
+      attribute color { xsd:NMTOKEN }?
+    }?,
+    (element ScriptLimits {
+       attribute maxRecursionDepth { xsd:integer },
+       attribute scriptTimeoutSeconds { xsd:integer }
+     }
+     | (element DefineSound {
+          attribute file { text },
+          attribute id { xsd:integer }
+        },
+        element StartSound {
+          attribute id { xsd:integer },
+          attribute loopCount { xsd:integer }
+        }))?,
+    (PlaceObject
+     | ShowFrame
+     | Tween
+     | element DefineABC {
+         attribute file { text }?,
+         attribute isBoot { xsd:boolean }?,
+         attribute name { xsd:NCName }?,
+         element abcfiles {
+           element abcfile {
+             element import {
+               attribute name { xsd:NCName }
+             }+,
+             element class {
+               attribute extends { xsd:NCName }?,
+               attribute name { xsd:NCName },
+               element var {
+                 attribute const { xsd:boolean }?,
+                 attribute name { xsd:NCName },
+                 attribute static { xsd:boolean }?,
+                 attribute type { xsd:NCName }?,
+                 attribute value { text }?
+               }*,
+               element function {
+                 attribute args { text }?,
+                 attribute kind { xsd:NCName }?,
+                 attribute name { xsd:NCName },
+                 attribute return { xsd:NCName }?,
+                 attribute static { xsd:boolean }?,
+                 (element JAlways {
+                    attribute jump { xsd:NCName }
+                  }
+                  | element JLt {
+                      attribute label { xsd:NCName }
+                    }
+                  | element JNeq {
+                      attribute jump { xsd:NCName }
+                    }
+                  | element OArray {
+                      attribute v { xsd:integer }
+                    }
+                  | element OCallPropVoid {
+                      attribute nargs { xsd:integer },
+                      attribute v { xsd:NCName }
+                    }
+                  | element OCallProperty {
+                      attribute nargs { xsd:integer },
+                      attribute v { xsd:NCName }
+                    }
+                  | element OCast {
+                      attribute v { xsd:NCName }
+                    }
+                  | element OConstructProperty {
+                      attribute nargs { xsd:integer },
+                      attribute v { xsd:NCName }
+                    }
+                  | element OConstructSuper {
+                      attribute v { xsd:integer }
+                    }
+                  | element ODup { empty }
+                  | element OFindProp {
+                      attribute v { xsd:NCName }
+                    }
+                  | element OFindPropStrict {
+                      attribute ns { xsd:NCName }?,
+                      attribute v { xsd:NCName }
+                    }
+                  | element OGetGlobalScope { empty }
+                  | element OGetLex {
+                      attribute v { xsd:NCName }
+                    }
+                  | element OGetProp {
+                      attribute v { xsd:NCName }
+                    }
+                  | element OGetScope {
+                      attribute v { xsd:integer }
+                    }
+                  | element OGetSlot {
+                      attribute v { xsd:integer }
+                    }
+                  | element OIncrIReg {
+                      attribute v { xsd:integer }
+                    }
+                  | element OInitProp {
+                      attribute v { xsd:NCName }
+                    }
+                  | element OIntRef {
+                      attribute v { xsd:NMTOKEN }
+                    }
+                  | element OJump {
+                      attribute name { xsd:NCName }
+                    }
+                  | element OLabel {
+                      attribute name { xsd:NCName }
+                    }
+                  | element OReg {
+                      attribute v { xsd:integer }
+                    }
+                  | element OScope { empty }
+                  | element OSetProp {
+                      attribute v { xsd:NCName }
+                    }
+                  | element OSetReg {
+                      attribute v { xsd:integer }
+                    }
+                  | element OSetSlot {
+                      attribute v { xsd:integer }
+                    }
+                  | element OSmallInt {
+                      attribute v { xsd:integer }
+                    }
+                  | element OString {
+                      attribute v { text }
+                    }
+                  | element OThis { empty }
+                  | element OToInt { empty }
+                  | element OTrue { empty }
+                  | element OpAdd { empty })+,
+                 element ORet { empty }?,
+                 (element OCallStatic {
+                    attribute nargs { xsd:integer },
+                    attribute v { xsd:integer }
+                  },
+                  element OPop { empty })?,
+                 element ORetVoid { empty }?
+               }+
+             }+
+           }
+         }?
+       }
+     | element DefineBinaryData {
+         attribute file { text },
+         attribute id { xsd:integer }
+       }
+     | element DefineBitsJPEG {
+         attribute file { text },
+         attribute id { xsd:integer }
+       }
+     | element DefineBitsJpeg {
+         attribute file { text },
+         attribute id { xsd:integer }
+       }
+     | element DefineButton {
+         attribute id { xsd:integer },
+         element ButtonState {
+           attribute depth { xsd:integer },
+           attribute down { xsd:boolean }?,
+           attribute hit { xsd:boolean }?,
+           attribute id { xsd:integer },
+           attribute over { xsd:boolean }?,
+           attribute up { xsd:boolean }?
+         }+
+       }
+     | element DefineEditText {
+         attribute align { xsd:integer },
+         attribute alpha { xsd:decimal },
+         attribute autoSize { xsd:boolean },
+         attribute border { xsd:boolean },
+         attribute file { text },
+         attribute fontClass { text },
+         attribute fontHeight { xsd:integer },
+         attribute fontID { xsd:integer },
+         attribute height { xsd:integer },
+         attribute html { xsd:boolean },
+         attribute id { xsd:integer },
+         attribute indent { xsd:integer },
+         attribute initialText { text },
+         attribute input { xsd:boolean },
+         attribute leading { xsd:integer },
+         attribute leftMargin { xsd:integer },
+         attribute maxLength { xsd:integer },
+         attribute multiline { xsd:boolean },
+         attribute password { xsd:boolean },
+         attribute rightMargin { xsd:integer },
+         attribute selectable { xsd:boolean },
+         attribute textColor { xsd:NMTOKEN },
+         attribute useOutlines { xsd:boolean },
+         attribute variableName { text },
+         attribute wasStatic { xsd:boolean },
+         attribute width { xsd:integer },
+         attribute wordWrap { xsd:boolean }
+       }
+     | element DefineFont {
+         attribute charCodes { text }?,
+         attribute file { text },
+         attribute id { xsd:integer },
+         attribute name { xsd:NCName }?
+       }
+     | element DefineShape {
+         attribute bitmapId { xsd:integer }?,
+         attribute id { xsd:integer },
+         element BeginBitmapFill {
+           attribute bitmapId { xsd:integer },
+           attribute x { xsd:integer },
+           attribute y { xsd:integer }
+         }?,
+         element LineStyle {
+           attribute alpha { xsd:decimal },
+           attribute color { xsd:NMTOKEN },
+           attribute width { xsd:integer }
+         }?,
+         element BeginFill {
+           attribute alpha { xsd:decimal }?,
+           attribute color { xsd:NMTOKEN }?
+         }?,
+         element DrawRoundRectComplex {
+           attribute height { xsd:integer },
+           attribute rbl { xsd:integer },
+           attribute rbr { xsd:integer },
+           attribute rtl { xsd:integer },
+           attribute rtr { xsd:integer },
+           attribute width { xsd:integer },
+           attribute x { xsd:integer },
+           attribute y { xsd:integer }
+         }?,
+         element Beginfill {
+           attribute alpha { xsd:decimal },
+           attribute color { xsd:NMTOKEN }
+         }?,
+         element DrawRect {
+           attribute height { xsd:integer },
+           attribute width { xsd:integer },
+           attribute x { xsd:integer }?,
+           attribute y { xsd:integer }?
+         }?
+       }
+     | element DefineSprite {
+         attribute file { text }?,
+         attribute frameCount { xsd:integer }?,
+         attribute id { xsd:integer },
+         (PlaceObject
+          | ShowFrame
+          | element FrameLabel {
+              attribute name { xsd:NCName }
+            })*,
+         (Tween+, EndFrame)?
+       }
+     | element RemoveObject {
+         attribute depth { xsd:integer }
+       }
+     | element SymbolClass {
+         attribute base { xsd:NCName }?,
+         attribute class { xsd:NCName },
+         attribute id { xsd:integer }
+       })*,
+    EndFrame?,
+    element fileattributes { empty }?,
+    (element Setbackgroundcolor {
+       attribute color { xsd:NMTOKEN }
+     }
+     | element definebinarydata {
+         attribute file { text },
+         attribute id { xsd:integer }
+       })?,
+    (element defineabc {
+       attribute file { xsd:NCName },
+       attribute isBoot { xsd:boolean }?
+     }
+     | element symbolclass {
+         attribute class { xsd:NCName },
+         attribute id { xsd:integer }
+       })*,
+    (element Showframe { empty }
+     | element showframe { empty })?
+  }
+  | element ns1:swf {
+      attribute fps { xsd:integer }?,
+      attribute frameCount { xsd:integer }?,
+      attribute height { xsd:integer }?,
+      attribute version { xsd:integer }?,
+      attribute width { xsd:integer }?,
+      attribute xsi:schemaLocation { text }?,
+      element ns1:FileAttributes {
+        attribute actionscript3 { xsd:boolean }?,
+        attribute useNetwork { xsd:boolean }?
+      }?,
+      element ns1:DefineBitsJpeg {
+        attribute file { text },
+        attribute id { xsd:integer }
+      }?,
+      element ns1:SetBackgroundColor {
+        attribute color { xsd:NMTOKEN }?
+      }?,
+      (element ns1:DefineBitsJPEG {
+         attribute file { xsd:anyURI },
+         attribute id { xsd:integer }
+       }
+       | (element ns1:Custom {
+            attribute comment { text },
+            attribute data { text }?,
+            attribute file { xsd:NCName }?,
+            attribute tagId { xsd:integer }?
+          }
+          | element ns1:DefineSound {
+              attribute file { text },
+              attribute id { xsd:integer }
+            })*),
+      (ns1.PlaceObject
+       | element ns1:DefineShape {
+           attribute bitmapId { xsd:integer }?,
+           attribute id { xsd:integer },
+           element ns1:BeginGradientFill {
+             attribute alphas { text },
+             attribute colors { text },
+             attribute ratios { text },
+             attribute rotate0 { xsd:decimal },
+             attribute rotate1 { xsd:decimal },
+             attribute scaleX { xsd:decimal },
+             attribute scaleY { xsd:decimal },
+             attribute type { xsd:NCName },
+             attribute x { xsd:integer },
+             attribute y { xsd:integer }
+           }?,
+           (element ns1:BeginBitmapFill {
+              attribute bitmapId { xsd:integer },
+              attribute repeat { xsd:boolean }?,
+              attribute rotate0 { xsd:decimal }?,
+              attribute rotate1 { xsd:decimal }?,
+              attribute scaleX { xsd:integer }?,
+              attribute scaleY { xsd:integer }?,
+              attribute smooth { xsd:boolean }?,
+              attribute x { xsd:integer }?,
+              attribute y { xsd:integer }?
+            }
+            | element ns1:BeginFill {
+                attribute alpha { xsd:decimal }?,
+                attribute color { xsd:NMTOKEN }
+              }
+            | element ns1:CurveTo {
+                attribute ax { xsd:integer },
+                attribute ay { xsd:integer },
+                attribute cx { xsd:integer },
+                attribute cy { xsd:integer }
+              }
+            | element ns1:DrawCircle {
+                attribute r { xsd:integer },
+                attribute sections { xsd:integer },
+                attribute x { xsd:integer },
+                attribute y { xsd:integer }
+              }
+            | element ns1:DrawEllipse {
+                attribute height { xsd:integer },
+                attribute width { xsd:integer },
+                attribute x { xsd:integer },
+                attribute y { xsd:decimal }
+              }
+            | element ns1:DrawRect {
+                attribute height { xsd:integer },
+                attribute width { xsd:integer },
+                attribute x { xsd:integer }?,
+                attribute y { xsd:integer }?
+              }
+            | element ns1:DrawRoundRect {
+                attribute height { xsd:integer },
+                attribute r { xsd:integer },
+                attribute width { xsd:integer },
+                attribute x { xsd:integer },
+                attribute y { xsd:integer }
+              }
+            | element ns1:DrawRoundRectComplex {
+                attribute height { xsd:integer },
+                attribute rbl { xsd:integer },
+                attribute rbr { xsd:integer },
+                attribute rtl { xsd:integer },
+                attribute rtr { xsd:integer },
+                attribute width { xsd:integer },
+                attribute x { xsd:integer },
+                attribute y { xsd:integer }
+              }
+            | element ns1:EndLine { empty }
+            | element ns1:LineStyle {
+                attribute alpha { xsd:decimal },
+                attribute color { xsd:NMTOKEN },
+                attribute width { xsd:integer }
+              }
+            | element ns1:LineTo {
+                attribute x { xsd:integer },
+                attribute y { xsd:integer }
+              }
+            | element ns1:MoveTo {
+                attribute x { xsd:integer },
+                attribute y { xsd:integer }?
+              })*,
+           element ns1:EndFill { empty }?
+         }
+       | element ns1:DefineSprite {
+           attribute frameCount { xsd:integer },
+           attribute id { xsd:integer },
+           ns1.PlaceObject,
+           ns1.ShowFrame
+         }
+       | element ns1:ImportAssets {
+           attribute url { xsd:NCName }
+         })*,
+      (element ns1:DefineABC {
+         attribute file { xsd:NCName },
+         attribute name { xsd:NCName }?
+       }
+       | element ns1:SymbolClass {
+           attribute base { xsd:NCName }?,
+           attribute class { xsd:NCName },
+           attribute id { xsd:integer }
+         })*,
+      ns1.ShowFrame
+    }
+ns1.PlaceObject =
+  element ns1:PlaceObject {
+    attribute blendMode { xsd:NCName }?,
+    attribute className { xsd:NCName }?,
+    attribute depth { xsd:integer },
+    attribute hasImage { xsd:boolean }?,
+    attribute id { xsd:integer }?,
+    attribute name { xsd:NCName }?,
+    attribute scaleX { xsd:decimal }?,
+    attribute scaleY { xsd:decimal }?,
+    attribute x { xsd:integer }?,
+    attribute y { xsd:integer }?,
+    (element ns1:Bevel { empty }
+     | element ns1:ColorMatrix { empty }
+     | element ns1:DropShadow { empty }
+     | element ns1:Glow { empty }
+     | element ns1:GradientBevel { empty }
+     | element ns1:GradientGlow { empty }
+     | element ns1:blur { empty })?
+  }
+ns1.ShowFrame = element ns1:ShowFrame { empty }
+ShowFrame =
+  element ShowFrame {
+    attribute count { xsd:integer }?
+  }
+PlaceObject =
+  element PlaceObject {
+    attribute depth { xsd:integer },
+    attribute id { xsd:integer },
+    attribute move { xsd:boolean }?,
+    attribute name { xsd:NCName }?,
+    attribute x { xsd:integer }?,
+    attribute y { xsd:integer }?
+  }
+Tween =
+  element Tween {
+    attribute depth { xsd:integer },
+    attribute frameCount { xsd:integer },
+    element Tw {
+      attribute end { xsd:decimal },
+      attribute prop { xsd:NCName },
+      attribute start { xsd:decimal }
+    }+
+  }
+EndFrame = element EndFrame { empty }

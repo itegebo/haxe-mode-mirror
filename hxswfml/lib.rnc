@@ -1,0 +1,45 @@
+default namespace = ""
+
+start =
+  element lib {
+    attribute backgroundcolor { xsd:NMTOKEN }?,
+    attribute height { xsd:integer }?,
+    attribute width { xsd:integer }?,
+    element bitmapdata {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element bitmap {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element sprite {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element movieclip {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element button {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element bytearray {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element sound {
+      attribute class { xsd:NCName },
+      attribute file { text }
+    },
+    element font {
+      attribute class { xsd:NCName },
+      attribute file { text },
+      attribute glyphs { xsd:NMTOKEN }?
+    },
+    element abc {
+      attribute file { xsd:NCName },
+      attribute isBoot { xsd:boolean }
+    }?
+  }
