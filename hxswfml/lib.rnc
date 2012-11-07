@@ -1,45 +1,76 @@
 default namespace = ""
 
+hexcolor = xsd:string { pattern = "0x[1-0a-fA-F]{6}" }
+
 start =
-  element lib {
-    attribute backgroundcolor { xsd:NMTOKEN }?,
-    attribute height { xsd:integer }?,
-    attribute width { xsd:integer }?,
-    element bitmapdata {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element bitmap {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element sprite {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element movieclip {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element button {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element bytearray {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element sound {
-      attribute class { xsd:NCName },
-      attribute file { text }
-    },
-    element font {
-      attribute class { xsd:NCName },
-      attribute file { text },
-      attribute glyphs { xsd:NMTOKEN }?
-    },
-    element abc {
-      attribute file { xsd:NCName },
-      attribute isBoot { xsd:boolean }
-    }?
-  }
+   element lib {
+      attribute backgroundcolor { hexcolor }?,
+      attribute fps { xsd:integer }?,
+      attribute frameCount { xsd:integer }?,
+      attribute compressed { xsd:boolean }?,
+      attribute height { xsd:integer }?,
+      attribute width { xsd:integer }?,
+      attribute actionscript3 { xsd:boolean }?,
+      attribute useDirectBlit { xsd:boolean }?,
+      attribute useGPU { xsd:boolean }?,
+      attribute hasMetaData { xsd:boolean }?,
+      attribute useNetWork { xsd:boolean }?,
+      attribute version { xsd:integer }?,
+
+      (element frame { empty }
+       | # Compiles to flash.display.BitmapData
+         element bitmapdata {
+            attribute class { xsd:NCName },
+            attribute file { text }
+         }
+       | # Compiles to flash.display.Bitmap
+         element bitmap {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?
+         }
+       | # Compiles to flash.display.Sprite
+         element sprite {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?
+         }
+       | # Compiles to flash.display.MovieClip
+         element movieclip {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?
+         }
+       | # Compiles to flash.display.SimpleButton
+         element button {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?
+         }
+       | # Compiles to flash.utils.ByteArray
+         element bytearray {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?
+         }
+       | # Compiles to flash.media.Sound
+         element sound {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?
+         }
+       | # Compiles to flash.text.Font
+         element font {
+            attribute file { text },
+            attribute class { xsd:NCName }?,
+            attribute link { text }?,
+            attribute name { text }?,
+            attribute glyphs { xsd:NMTOKEN }?
+         }
+       | # ActionScript bytecode
+         element abc {
+            attribute file { xsd:NCName },
+            attribute link { text }?,
+            attribute isBoot { xsd:boolean }?
+         }?)*
+   }
