@@ -14,7 +14,7 @@ $(DOCDST)/%.info: $(DOCSRC)/%.texi
 
 default: prepare byte-compile $(INFO)
 	cp -r lisp info Makefile README scripts yasnippets \
-project-templates ac-haxe ${PACKAGE}
+project-templates ac-haxe hxswfml ${PACKAGE}
 
 prepare:
 	mkdir -p ${PACKAGE}

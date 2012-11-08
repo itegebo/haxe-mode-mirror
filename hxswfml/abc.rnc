@@ -1,273 +1,523 @@
 default namespace = ""
 
 start =
-  element abcfiles {
-    element abcfile {
-      attribute name { text }?,
-      element import {
-        attribute name { xsd:NCName }
-      }?,
-      (element class {
-         attribute extends { xsd:NCName },
-         attribute final { xsd:boolean }?,
-         attribute name { text },
-         attribute sealed { xsd:boolean }?,
-         element var {
-           attribute const { xsd:boolean }?,
-           attribute name { xsd:NCName },
-           attribute slot { xsd:integer }?,
-           attribute static { xsd:boolean }?,
-           attribute type { xsd:NCName }?,
-           attribute value { text }?
-         }*,
-         function+
-       }
-       | element init {
-           attribute name { text },
-           attribute return { text },
-           OThis,
-           (ODebugFile
-            | ODebugLine
-            | ODup
-            | OFunction
-            | OGetGlobalScope
-            | OGetLex
-            | OGetProp
-            | OGetScope
-            | OInitProp
-            | OPopScope
-            | OScope
-            | OSetReg
-            | element OClassDef {
-                attribute v { text }
-              })+,
-           (OReg, OArray, OSetProp)?,
-           ORetVoid
-         })+,
-      function*
-    }
-  }
-OThis = element OThis { empty }
-OScope = element OScope { empty }
-ODebugFile =
-  element ODebugFile {
-    attribute v { xsd:anyURI }
-  }
-ODebugLine =
-  element ODebugLine {
-    attribute v { xsd:integer }
-  }
-OGetScope =
-  element OGetScope {
-    attribute v { xsd:integer }
-  }
-OGetLex =
-  element OGetLex {
-    attribute v { text }
-  }
+   element abcfiles {
+      element abcfile {
+         attribute name { text }?,
+         element import {
+            attribute name { xsd:NCName }
+         }?,
+         (element class {
+            attribute name { text },
+            attribute extends { xsd:NCName }?,
+            attribute final { xsd:boolean }?,
+            attribute sealed { xsd:boolean }?,
+            var*,
+            function*
+         }
+          | element init {
+             attribute name { text },
+             attribute return { text },
+             OThis,
+             opcode*,
+             ORetVoid
+          })+,
+         function*
+      }+
+   }
+
+# opcode helpers
+
+jumpprops =
+   attribute label { xsd:string }?,
+   attribute jump { xsd:string }?,
+   attribute offset { xsd:integer }?
+
+stringvalue = attribute v { xsd:string }
+
+intvalue = attribute v { xsd:integer }
+
+anyvalue = attribute v { text }
+
+callfunc =
+   attribute nargs { xsd:integer },
+   stringvalue
+
+namedop = attribute name { xsd:string }
+
+# Opcodes:
+
+ODeleteProp = element ODeleteProp { stringvalue }
+  
+OGetDescendants = element OGetDescendants { stringvalue }
+  
+OCase = element OCase { namedop }
+  
+OApplyType = element OApplyType { intvalue }
+  
+OpIncr = element OpIncr { empty }
+   
+OToString = element OToString { empty }
+  
+OSwap =  element OSwap { empty }
+  
+OInstanceOf = element OInstanceOf { empty }
+  
+OUndefined =  element OUndefined { empty }
+  
+OPushWith = element OPushWith { empty }
+  
+OForEach = element OForEach { empty }
+  
+OAsString = element OAsString { empty }
+  
+OCheckIsXml = element OCheckIsXml { empty }
+  
+OpDecr = element OpDecr { empty }
+  
+OpPhysEq = element OpPhysEq { empty }
+  
+OpIn = element OpIn { empty }
+  
+OpMemGet8 = element OpMemGet8 { empty }
+  
+OpMemGet16 = element OpMemGet16 { empty }
+  
+OpMemGet32 = element OpMemGet32 { empty }
+  
+OpMemGetFloat = element OpMemGetFloat { empty }
+  
+OpMemGetDouble = element OpMemGetDouble { empty }
+  
+OpMemSet8 = element OpMemSet8 { empty }
+  
+OpMemSet16 = element OpMemSet16 { empty }
+  
+OpMemSet32 = element OpMemSet32 { empty }
+  
+OpMemSetFloat = element OpMemSetFloat { empty }
+  
+OpMemSetDouble = element OpMemSetDouble { empty }
+  
+OpSign1 = element OpSign1 { empty }
+  
+OpSign8 = element OpSign8 { empty }
+  
+OpSign16 = element OpSign16 { empty }
+  
+OInt = element OInt { intvalue }
+  
+OClassDef = element OClassDef { stringvalue }
+  
+ODebugReg = element ODebugReg {
+   namedop,
+   attribute r { xsd:integer },
+   attribute line { xsd:integer }
+}
+  
+ODebugFile = element ODebugFile { stringvalue }
+  
+ODebugLine = element ODebugLine { intvalue }
+  
+OFloat = element OFloat { stringvalue }
+  
+ODecrIReg = element ODecrIReg { intvalue }
+  
+OpUShr = element OpUShr { empty }
+  
+OpSub = element OpSub { empty }
+  
+OpMod = element OpMod { empty }
+  
+OpXor = element OpXor { empty }
+  
+OpNeg = element OpNeg { empty }
+  
+OpBitNot = element OpBitNot { empty }
+  
+ONaN = element ONaN { empty }
+  
+OpGte = element OpGte { empty }
+  
+OpOr = element OpOr { empty }
+  
+OpIMul = element OpIMul { empty }
+  
 OPopScope = element OPopScope { empty }
-OInitProp =
-  element OInitProp {
-    attribute v { text }
-  }
+  
+OpDiv = element OpDiv { empty }
+  
+OpAnd = element OpAnd { empty }
+  
+OpISub = element OpISub { empty }
+  
+OpINeg = element OpINeg { empty }
+  
+OpShl = element OpShl { empty }
+  
+OThrow = element OThrow { empty }
+  
+OpShr = element OpShr { empty }
+  
+OToUInt = element OToUInt { empty }
+  
+OThis = element OThis { empty }
+  
+OpIAdd = element OpIAdd { empty }
+  
+OScope = element OScope { empty }
+  
+OGetLex = element OGetLex { anyvalue }
+  
+OSwitch = element OSwitch {
+   attribute \default { xsd:integer },
+   attribute deltas { xsd:string }
+}
+  
+OSwitch2 = element OSwitch2 {
+   attribute \default { xsd:string },
+   attribute deltas { xsd:string }
+}
+  
 ODup = element ODup { empty }
-OSetReg =
-  element OSetReg {
-    attribute v { xsd:integer }
-  }
-OFunction =
-  element OFunction {
-    attribute v { xsd:NCName }
-  }
+  
+OSetReg = element OSetReg { intvalue }
+  
+OInitProp = element OInitProp { anyvalue }
+  
 OGetGlobalScope = element OGetGlobalScope { empty }
-OGetProp =
-  element OGetProp {
-    attribute v { text }
-  }
-OReg =
-  element OReg {
-    attribute v { xsd:integer }
-  }
-OArray =
-  element OArray {
-    attribute v { xsd:integer }
-  }
-OSetProp =
-  element OSetProp {
-    attribute v { xsd:NCName }
-  }
+  
+OGetProp = element OGetProp { anyvalue }
+  
+OFunction = element OFunction { stringvalue }
+  
+OReg = element OReg { intvalue }
+  
+OArray = element OArray { intvalue }
+  
+OSetProp = element OSetProp { stringvalue }
+  
 ORetVoid = element ORetVoid { empty }
+  
+JAlways = element JAlways { jumpprops }
+  
+JPhysEq = element JPhysEq { jumpprops }
+  
+OCatch = element OCatch {
+   intvalue,
+   attribute \start { xsd:integer },
+   attribute end { xsd:integer },
+   attribute handle { xsd:integer },
+   attribute type { xsd:string },
+   attribute variable { xsd:string }?
+}
+  
+JEq = element JEq { jumpprops }
+  
+JFalse = element JFalse { jumpprops }
+  
+JGt = element JGt { jumpprops }
+  
+JPhysNeq = element JPhysNeq { jumpprops }
+  
+JNotGte = element JNotGte { jumpprops }
+  
+OpLte = element OpLte { jumpprops }
+  
+JNotLt = element JNotLt { jumpprops }
+  
+JNotLte = element JNotLte { jumpprops }
+  
+JGte = element JGte { jumpprops }
+  
+JLt = element JLt { jumpprops }
+  
+JLte = element JLte { jumpprops }
+  
+JNeq = element JNeq { jumpprops }
+  
+JNotGt = element JNotGt { jumpprops }
+  
+JTrue = element JTrue { jumpprops }
+  
+OAsAny = element OAsAny { empty }
+  
+OpIDecr = element OpIDecr { empty }
+  
+OAsType = element OAsType { stringvalue }
+  
+ORegKill = element ORegKill { intvalue }
+  
+OCallSuperVoid = element OCallSuperVoid { callfunc }
+  
+OCallSuper = element OCallSuper { callfunc }
+  
+OCallPropVoid = element OCallPropVoid { callfunc }
+  
+OCallPropLex = element OCallPropLex { callfunc }
+  
+OCallProperty = element OCallProperty { callfunc }
+  
+OCallStack = element OCallStack { intvalue }
+  
+OCast = element OCast { stringvalue }
+  
+OConstruct = element OConstruct { intvalue }
+  
+OConstructProperty = element OConstructProperty { callfunc }
+  
+OConstructSuper = element OConstructSuper { intvalue }
+  
+OSetSuper = element OSetSuper { stringvalue }
+  
+OGetSuper = element OGetSuper { stringvalue }
+  
+OFalse = element OFalse { empty }
+  
+OFindProp = element OFindProp { stringvalue }
+  
+OFindPropStrict = element OFindPropStrict { stringvalue }
+  
+OForIn = element OForIn { empty }
+  
+OGetScope = element OGetScope { intvalue }
+  
+OIncrIReg = element OIncrIReg { intvalue }
+  
+OIntRef = element OIntRef { intvalue }
+  
+OJump = element OJump { namedop }
+  
+OLabel = element OLabel { namedop }
+  
+ONewBlock = element ONewBlock { empty }
+  
+ONext = element ONext {
+   attribute v1 { xsd:integer },
+   attribute v2 { xsd:integer }
+}
+  
+ONull = element ONull { empty }
+  
+OObject = element OObject { intvalue }
+  
+OPop = element OPop { empty }
+  
+ORet = element ORet { empty }
+  
+OSetSlot = element OSetSlot { intvalue }
+  
+OGetSlot = element OGetSlot { intvalue }
+  
+OSmallInt = element OSmallInt { intvalue }
+  
+OString = element OString { anyvalue }
+  
+OToBool = element OToBool { empty }
+  
+OToInt = element OToInt { empty }
+  
+OToNumber = element OToNumber { empty }
+  
+OTrue = element OTrue { empty }
+  
+OTypeof = element OTypeof { empty }
+  
+OpAdd = element OpAdd { empty }
+  
+OpAs = element OpAs { empty }
+  
+OpEq = element OpEq { empty }
+  
+OpGt = element OpGt { empty }
+  
+OpIIncr = element OpIIncr { empty }
+  
+OpIs = element OpIs { empty }
+  
+OpLt = element OpLt { empty }
+  
+OpMul = element OpMul { empty }
+  
+OpNot = element OpNot { empty }
+
+# variables
+
+var =
+   element var {
+      attribute name { xsd:NCName },
+      attribute const { xsd:boolean }?,
+      attribute slot { xsd:integer }?,
+      attribute static { xsd:boolean }?,
+      attribute type { xsd:NCName }?,
+      attribute value { text }?
+   }
+
+opcode = (OCallPropLex
+ | OInstanceOf
+ | OAsString
+ | ORegKill
+ | OCallSuperVoid
+ | OCallSuper
+ | OSwap
+ | OArray
+ | OClassDef
+ | ODebugFile
+ | ODebugLine
+ | ODup
+ | OFunction
+ | OGetGlobalScope
+ | OGetLex
+ | OGetProp
+ | OInitProp
+ | OReg
+ | ORetVoid
+ | OScope
+ | OSetProp
+ | OSetReg
+ | OThis
+ | JAlways
+ | JEq
+ | JGte
+ | JFalse
+ | JGt
+ | OpLte
+ | JLt
+ | JLte
+ | JNeq
+ | JNotLte
+ | JNotGt
+ | JNotGte
+ | JNotLt
+ | JTrue
+ | OAsAny
+ | OAsType
+ | OCallPropVoid
+ | OCallProperty
+ | OCallStack
+ | OCast
+ | OConstruct
+ | OConstructProperty
+ | OConstructSuper
+ | OFalse
+ | OFindProp
+ | OFindPropStrict
+ | OForIn
+ | OGetScope
+ | OIncrIReg
+ | OIntRef
+ | OJump
+ | JPhysNeq
+ | OLabel
+ | ONewBlock
+ | ONext
+ | ONull
+ | OObject
+ | OForEach
+ | OPop
+ | ORet
+ | OSetSlot
+ | OSmallInt
+ | OString
+ | OToBool
+ | OToInt
+ | OToNumber
+ | OTrue
+ | OTypeof
+ | OpAdd
+ | OpAs
+ | OpEq
+ | OpGt
+ | OpIIncr
+ | OpIs
+ | OpLt
+ | OpMul
+ | OpNot
+ | OPopScope
+ | ODebugReg
+ | OpIDecr
+ | ODeleteProp
+ | OpISub
+ | OpIAdd
+ | OpINeg
+ | OThrow
+ | OpShr
+ | OToUInt
+ | OpAnd
+ | OSwitch
+ | OSwitch2
+ | OInt
+ | OpShl
+ | OFloat
+ | OpDiv
+ | OpUShr
+ | OpSub
+ | ONaN
+ | OpOr
+ | ODecrIReg
+ | OpIMul
+ | OpMod
+ | OpXor
+ | OpNeg
+ | OpBitNot
+ | OpGte
+ | OGetSlot
+ | OCase
+ | OApplyType
+ | OpIncr
+ | OpDecr
+ | OpPhysEq
+ | OpIn
+ | OpMemGet8
+ | OpMemGet16
+ | OpMemGet32
+ | OpMemGetFloat
+ | OpMemGetDouble
+ | OpMemSet8
+ | OpMemSet16
+ | OpMemSet32
+ | OpMemSetFloat
+ | OpMemSetDouble
+ | OpSign1
+ | OpSign8
+ | OpSign16
+ | OCheckIsXml
+ | OCatch
+ | OGetSuper
+ | OSetSuper
+ | OUndefined
+ | OPushWith
+ | JPhysEq
+ | OToString
+ | OGetDescendants)
+
+# functions
+
 function =
-  element function {
-    attribute args { text }?,
-    attribute debugName { text }?,
-    attribute defaultParameters { text }?,
-    attribute f { xsd:NCName }?,
-    attribute final { xsd:boolean }?,
-    attribute kind { xsd:NCName }?,
-    attribute locals { xsd:anyURI }?,
-    attribute name { text },
-    attribute newBlock { xsd:boolean }?,
-    attribute return { text }?,
-    attribute slot { xsd:integer }?,
-    attribute static { xsd:boolean }?,
-    (OArray
-     | ODebugFile
-     | ODebugLine
-     | ODup
-     | OFunction
-     | OGetGlobalScope
-     | OGetLex
-     | OGetProp
-     | OGetScope
-     | OInitProp
-     | OPopScope
-     | OReg
-     | ORetVoid
-     | OScope
-     | OSetProp
-     | OSetReg
-     | OThis
-     | element JAlways {
-         attribute jump { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JEq {
-         attribute jump { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JFalse {
-         attribute jump { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JGt {
-         attribute label { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JLt {
-         attribute label { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JNeq {
-         attribute jump { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JNotGt {
-         attribute jump { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element JTrue {
-         attribute label { xsd:NCName },
-         attribute offset { xsd:integer }
-       }
-     | element OAsAny { empty }
-     | element OAsType {
-         attribute v { xsd:NCName }
-       }
-     | element OCallPropVoid {
-         attribute nargs { xsd:integer },
-         attribute v { xsd:anyURI }
-       }
-     | element OCallProperty {
-         attribute nargs { xsd:integer },
-         attribute v { xsd:anyURI }
-       }
-     | element OCallStack {
-         attribute v { xsd:integer }
-       }
-     | element OCast {
-         attribute v { xsd:NCName }
-       }
-     | element OCatch {
-         attribute end { xsd:integer },
-         attribute handle { xsd:integer },
-         attribute start { xsd:integer },
-         attribute type { xsd:NCName },
-         attribute v { xsd:integer },
-         attribute variable { xsd:NCName }
-       }
-     | element OConstruct {
-         attribute v { xsd:integer }
-       }
-     | element OConstructProperty {
-         attribute nargs { xsd:integer },
-         attribute v { xsd:NCName }
-       }
-     | element OConstructSuper {
-         attribute v { xsd:integer }
-       }
-     | element ODebugReg {
-         attribute line { xsd:integer },
-         attribute name { text },
-         attribute r { xsd:integer }
-       }
-     | element OFalse { empty }
-     | element OFindProp {
-         attribute v { xsd:NCName }
-       }
-     | element OFindPropStrict {
-         attribute v { xsd:NCName }
-       }
-     | element OFloat {
-         attribute v { xsd:decimal }
-       }
-     | element OForIn { empty }
-     | element OGetSlot {
-         attribute v { xsd:integer }
-       }
-     | element OIncrIReg {
-         attribute v { xsd:integer }
-       }
-     | element OInt {
-         attribute v { xsd:integer }
-       }
-     | element OIntRef {
-         attribute v { xsd:integer }
-       }
-     | element OJump {
-         attribute name { xsd:NCName }
-       }
-     | element OLabel {
-         attribute name { xsd:NCName }
-       }
-     | element ONewBlock { empty }
-     | element ONext {
-         attribute v1 { xsd:integer },
-         attribute v2 { xsd:integer }
-       }
-     | element ONull { empty }
-     | element OObject {
-         attribute v { xsd:integer }
-       }
-     | element OPop { empty }
-     | element ORegKill {
-         attribute v { xsd:integer }
-       }
-     | element ORet { empty }
-     | element OSetSlot {
-         attribute v { xsd:integer }
-       }
-     | element OSmallInt {
-         attribute v { xsd:integer }
-       }
-     | element OString {
-         attribute v { text }
-       }
-     | element OSwap { empty }
-     | element OToBool { empty }
-     | element OToInt { empty }
-     | element OToNumber { empty }
-     | element OTrue { empty }
-     | element OTypeof { empty }
-     | element OUndefined { empty }
-     | element OpAdd { empty }
-     | element OpAs { empty }
-     | element OpEq { empty }
-     | element OpGt { empty }
-     | element OpIIncr { empty }
-     | element OpIs { empty }
-     | element OpLt { empty }
-     | element OpMod { empty }
-     | element OpMul { empty }
-     | element OpNot { empty })+
-  }
+   element function {
+
+      attribute name { text },
+      attribute args { xsd:string }?,
+      attribute return { xsd:string }?,
+      attribute static { xsd:boolean }?,
+      attribute override { xsd:boolean }?,
+      attribute defaultParameters { xsd:string }?,
+      attribute f { xsd:string }?,
+      attribute final { xsd:boolean }?,
+      attribute initScope { xsd:integer }?,
+      attribute kind { xsd:string }?,
+      attribute locals { xsd:string }?,
+      attribute maxScope { xsd:integer }?,
+      attribute maxStack { xsd:integer }?,
+      attribute nRegs { xsd:integer }?,
+      attribute newBlock { xsd:boolean }?,
+      attribute unused { xsd:boolean }?,
+      attribute variableArgs { xsd:boolean }?,
+      attribute argumentsDefined { xsd:boolean }?,
+      attribute usesDXNS { xsd:boolean }?,
+      attribute debugName { xsd:string }?,
+      attribute native { xsd:boolean }?,
+      attribute slot { xsd:integer }?,
+      attribute ns { xsd:string }?,
+      opcode+
+   }
