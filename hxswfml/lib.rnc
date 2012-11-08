@@ -1,3 +1,5 @@
+# The original XSD Schema is here: http://code.google.com/p/hxswfml/source/browse/trunk/doc/hxswfml_lib.xsd
+
 default namespace = ""
 
 hexcolor = xsd:string { pattern = "0x[1-0a-fA-F]{6}" }
@@ -7,42 +9,41 @@ linkeratts =
    attribute class { xsd:NCName }?,
    attribute link { text }?
 
-start =
-   element lib {
-      attribute backgroundcolor { hexcolor }?,
-      attribute fps { xsd:integer }?,
-      attribute frameCount { xsd:integer }?,
-      attribute compressed { xsd:boolean }?,
-      attribute height { xsd:integer }?,
-      attribute width { xsd:integer }?,
-      attribute actionscript3 { xsd:boolean }?,
-      attribute useDirectBlit { xsd:boolean }?,
-      attribute useGPU { xsd:boolean }?,
-      attribute hasMetaData { xsd:boolean }?,
-      attribute useNetWork { xsd:boolean }?,
-      attribute version { xsd:integer }?,
+start = element lib {
+   attribute backgroundcolor { hexcolor }?,
+   attribute fps { xsd:integer }?,
+   attribute frameCount { xsd:integer }?,
+   attribute compressed { xsd:boolean }?,
+   attribute height { xsd:integer }?,
+   attribute width { xsd:integer }?,
+   attribute actionscript3 { xsd:boolean }?,
+   attribute useDirectBlit { xsd:boolean }?,
+   attribute useGPU { xsd:boolean }?,
+   attribute hasMetaData { xsd:boolean }?,
+   attribute useNetWork { xsd:boolean }?,
+   attribute version { xsd:integer }?,
 
-      (element frame { empty }
-       | # Compiles to flash.display.BitmapData
-         element bitmapdata { linkeratts }
-       | # Compiles to flash.display.Bitmap
-         element bitmap { linkeratts }
-       | # Compiles to flash.display.Sprite
-         element sprite { linkeratts }
-       | # Compiles to flash.display.MovieClip
-         element movieclip { linkeratts }
-       | # Compiles to flash.display.SimpleButton
-         element button { linkeratts }
-       | # Compiles to flash.utils.ByteArray
-         element bytearray { linkeratts }
-       | # Compiles to flash.media.Sound
-         element sound { linkeratts }
-       | # Compiles to flash.text.Font
-         element font {
-            linkeratts,
-            attribute name { text }?,
-            attribute glyphs { xsd:NMTOKEN }?
-         }
-       | # ActionScript bytecode
-         element abc { linkeratts })*
-   }
+   (element frame { empty }
+    | # Compiles to flash.display.BitmapData
+      element bitmapdata { linkeratts }
+    | # Compiles to flash.display.Bitmap
+      element bitmap { linkeratts }
+    | # Compiles to flash.display.Sprite
+      element sprite { linkeratts }
+    | # Compiles to flash.display.MovieClip
+      element movieclip { linkeratts }
+    | # Compiles to flash.display.SimpleButton
+      element button { linkeratts }
+    | # Compiles to flash.utils.ByteArray
+      element bytearray { linkeratts }
+    | # Compiles to flash.media.Sound
+      element sound { linkeratts }
+    | # Compiles to flash.text.Font
+      element font {
+         linkeratts,
+         attribute name { text }?,
+         attribute glyphs { xsd:NMTOKEN }?
+      }
+    | # ActionScript bytecode
+      element abc { linkeratts })*
+}

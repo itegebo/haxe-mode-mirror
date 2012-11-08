@@ -1,483 +1,452 @@
+# The original XSD Schema is here: http://code.google.com/p/hxswfml/source/browse/trunk/doc/hxswfml.xsd
+
 default namespace = ""
 namespace ns1 = "http://hxswfml.googlecode.com"
-namespace xsi = "http://www.w3.org/2001/XMLSchema-instance"
 
-start =
-  element swf {
-    attribute compressed { xsd:boolean }?,
-    attribute fps { xsd:integer }?,
-    attribute frameCount { xsd:integer }?,
-    attribute height { xsd:integer }?,
-    attribute version { xsd:integer }?,
-    attribute width { xsd:integer }?,
-    element FileAttributes {
-      attribute actionscript3 { xsd:boolean }?,
-      attribute hasMetaData { xsd:boolean }?,
-      attribute useDirectBlit { xsd:boolean }?,
-      attribute useGPU { xsd:boolean }?,
-      attribute useNetwork { xsd:boolean }?
-    }?,
-    element SetBackgroundColor {
-      attribute color { xsd:NMTOKEN }?
-    }?,
-    (element ScriptLimits {
-       attribute maxRecursionDepth { xsd:integer },
-       attribute scriptTimeoutSeconds { xsd:integer }
-     }
-     | (element DefineSound {
-          attribute file { text },
-          attribute id { xsd:integer }
-        },
-        element StartSound {
-          attribute id { xsd:integer },
-          attribute loopCount { xsd:integer }
-        }))?,
-    (PlaceObject
-     | ShowFrame
-     | Tween
-     | element DefineABC {
-         attribute file { text }?,
-         attribute isBoot { xsd:boolean }?,
-         attribute name { xsd:NCName }?,
-         element abcfiles {
-           element abcfile {
-             element import {
-               attribute name { xsd:NCName }
-             }+,
-             element class {
-               attribute extends { xsd:NCName }?,
-               attribute name { xsd:NCName },
-               element var {
-                 attribute const { xsd:boolean }?,
-                 attribute name { xsd:NCName },
-                 attribute static { xsd:boolean }?,
-                 attribute type { xsd:NCName }?,
-                 attribute value { text }?
-               }*,
-               element function {
-                 attribute args { text }?,
-                 attribute kind { xsd:NCName }?,
-                 attribute name { xsd:NCName },
-                 attribute return { xsd:NCName }?,
-                 attribute static { xsd:boolean }?,
-                 (element JAlways {
-                    attribute jump { xsd:NCName }
-                  }
-                  | element JLt {
-                      attribute label { xsd:NCName }
-                    }
-                  | element JNeq {
-                      attribute jump { xsd:NCName }
-                    }
-                  | element OArray {
-                      attribute v { xsd:integer }
-                    }
-                  | element OCallPropVoid {
-                      attribute nargs { xsd:integer },
-                      attribute v { xsd:NCName }
-                    }
-                  | element OCallProperty {
-                      attribute nargs { xsd:integer },
-                      attribute v { xsd:NCName }
-                    }
-                  | element OCast {
-                      attribute v { xsd:NCName }
-                    }
-                  | element OConstructProperty {
-                      attribute nargs { xsd:integer },
-                      attribute v { xsd:NCName }
-                    }
-                  | element OConstructSuper {
-                      attribute v { xsd:integer }
-                    }
-                  | element ODup { empty }
-                  | element OFindProp {
-                      attribute v { xsd:NCName }
-                    }
-                  | element OFindPropStrict {
-                      attribute ns { xsd:NCName }?,
-                      attribute v { xsd:NCName }
-                    }
-                  | element OGetGlobalScope { empty }
-                  | element OGetLex {
-                      attribute v { xsd:NCName }
-                    }
-                  | element OGetProp {
-                      attribute v { xsd:NCName }
-                    }
-                  | element OGetScope {
-                      attribute v { xsd:integer }
-                    }
-                  | element OGetSlot {
-                      attribute v { xsd:integer }
-                    }
-                  | element OIncrIReg {
-                      attribute v { xsd:integer }
-                    }
-                  | element OInitProp {
-                      attribute v { xsd:NCName }
-                    }
-                  | element OIntRef {
-                      attribute v { xsd:NMTOKEN }
-                    }
-                  | element OJump {
-                      attribute name { xsd:NCName }
-                    }
-                  | element OLabel {
-                      attribute name { xsd:NCName }
-                    }
-                  | element OReg {
-                      attribute v { xsd:integer }
-                    }
-                  | element OScope { empty }
-                  | element OSetProp {
-                      attribute v { xsd:NCName }
-                    }
-                  | element OSetReg {
-                      attribute v { xsd:integer }
-                    }
-                  | element OSetSlot {
-                      attribute v { xsd:integer }
-                    }
-                  | element OSmallInt {
-                      attribute v { xsd:integer }
-                    }
-                  | element OString {
-                      attribute v { text }
-                    }
-                  | element OThis { empty }
-                  | element OToInt { empty }
-                  | element OTrue { empty }
-                  | element OpAdd { empty })+,
-                 element ORet { empty }?,
-                 (element OCallStatic {
-                    attribute nargs { xsd:integer },
-                    attribute v { xsd:integer }
-                  },
-                  element OPop { empty })?,
-                 element ORetVoid { empty }?
-               }+
-             }+
-           }
-         }?
-       }
-     | element DefineBinaryData {
-         attribute file { text },
-         attribute id { xsd:integer }
-       }
-     | element DefineBitsJPEG {
-         attribute file { text },
-         attribute id { xsd:integer }
-       }
-     | element DefineBitsJpeg {
-         attribute file { text },
-         attribute id { xsd:integer }
-       }
-     | element DefineButton {
-         attribute id { xsd:integer },
-         element ButtonState {
-           attribute depth { xsd:integer },
-           attribute down { xsd:boolean }?,
-           attribute hit { xsd:boolean }?,
-           attribute id { xsd:integer },
-           attribute over { xsd:boolean }?,
-           attribute up { xsd:boolean }?
-         }+
-       }
-     | element DefineEditText {
-         attribute align { xsd:integer },
-         attribute alpha { xsd:decimal },
-         attribute autoSize { xsd:boolean },
-         attribute border { xsd:boolean },
-         attribute file { text },
-         attribute fontClass { text },
-         attribute fontHeight { xsd:integer },
-         attribute fontID { xsd:integer },
-         attribute height { xsd:integer },
-         attribute html { xsd:boolean },
-         attribute id { xsd:integer },
-         attribute indent { xsd:integer },
-         attribute initialText { text },
-         attribute input { xsd:boolean },
-         attribute leading { xsd:integer },
-         attribute leftMargin { xsd:integer },
-         attribute maxLength { xsd:integer },
-         attribute multiline { xsd:boolean },
-         attribute password { xsd:boolean },
-         attribute rightMargin { xsd:integer },
-         attribute selectable { xsd:boolean },
-         attribute textColor { xsd:NMTOKEN },
-         attribute useOutlines { xsd:boolean },
-         attribute variableName { text },
-         attribute wasStatic { xsd:boolean },
-         attribute width { xsd:integer },
-         attribute wordWrap { xsd:boolean }
-       }
-     | element DefineFont {
-         attribute charCodes { text }?,
-         attribute file { text },
-         attribute id { xsd:integer },
-         attribute name { xsd:NCName }?
-       }
-     | element DefineShape {
-         attribute bitmapId { xsd:integer }?,
-         attribute id { xsd:integer },
-         element BeginBitmapFill {
-           attribute bitmapId { xsd:integer },
-           attribute x { xsd:integer },
-           attribute y { xsd:integer }
-         }?,
-         element LineStyle {
-           attribute alpha { xsd:decimal },
-           attribute color { xsd:NMTOKEN },
-           attribute width { xsd:integer }
-         }?,
-         element BeginFill {
-           attribute alpha { xsd:decimal }?,
-           attribute color { xsd:NMTOKEN }?
-         }?,
-         element DrawRoundRectComplex {
-           attribute height { xsd:integer },
-           attribute rbl { xsd:integer },
-           attribute rbr { xsd:integer },
-           attribute rtl { xsd:integer },
-           attribute rtr { xsd:integer },
-           attribute width { xsd:integer },
-           attribute x { xsd:integer },
-           attribute y { xsd:integer }
-         }?,
-         element Beginfill {
-           attribute alpha { xsd:decimal },
-           attribute color { xsd:NMTOKEN }
-         }?,
-         element DrawRect {
-           attribute height { xsd:integer },
-           attribute width { xsd:integer },
-           attribute x { xsd:integer }?,
-           attribute y { xsd:integer }?
-         }?
-       }
-     | element DefineSprite {
-         attribute file { text }?,
-         attribute frameCount { xsd:integer }?,
-         attribute id { xsd:integer },
-         (PlaceObject
-          | ShowFrame
-          | element FrameLabel {
-              attribute name { xsd:NCName }
-            })*,
-         (Tween+, EndFrame)?
-       }
-     | element RemoveObject {
-         attribute depth { xsd:integer }
-       }
-     | element SymbolClass {
-         attribute base { xsd:NCName }?,
-         attribute class { xsd:NCName },
-         attribute id { xsd:integer }
-       })*,
-    EndFrame?,
-    element fileattributes { empty }?,
-    (element Setbackgroundcolor {
-       attribute color { xsd:NMTOKEN }
-     }
-     | element definebinarydata {
-         attribute file { text },
-         attribute id { xsd:integer }
-       })?,
-    (element defineabc {
-       attribute file { xsd:NCName },
-       attribute isBoot { xsd:boolean }?
-     }
-     | element symbolclass {
-         attribute class { xsd:NCName },
-         attribute id { xsd:integer }
-       })*,
-    (element Showframe { empty }
-     | element showframe { empty })?
-  }
-  | element ns1:swf {
-      attribute fps { xsd:integer }?,
-      attribute frameCount { xsd:integer }?,
-      attribute height { xsd:integer }?,
-      attribute version { xsd:integer }?,
-      attribute width { xsd:integer }?,
-      attribute xsi:schemaLocation { text }?,
-      element ns1:FileAttributes {
-        attribute actionscript3 { xsd:boolean }?,
-        attribute useNetwork { xsd:boolean }?
-      }?,
-      element ns1:DefineBitsJpeg {
-        attribute file { text },
-        attribute id { xsd:integer }
-      }?,
-      element ns1:SetBackgroundColor {
-        attribute color { xsd:NMTOKEN }?
-      }?,
-      (element ns1:DefineBitsJPEG {
-         attribute file { xsd:anyURI },
-         attribute id { xsd:integer }
-       }
-       | (element ns1:Custom {
-            attribute comment { text },
-            attribute data { text }?,
-            attribute file { xsd:NCName }?,
-            attribute tagId { xsd:integer }?
-          }
-          | element ns1:DefineSound {
-              attribute file { text },
-              attribute id { xsd:integer }
-            })*),
-      (ns1.PlaceObject
-       | element ns1:DefineShape {
-           attribute bitmapId { xsd:integer }?,
-           attribute id { xsd:integer },
-           element ns1:BeginGradientFill {
-             attribute alphas { text },
-             attribute colors { text },
-             attribute ratios { text },
-             attribute rotate0 { xsd:decimal },
-             attribute rotate1 { xsd:decimal },
-             attribute scaleX { xsd:decimal },
-             attribute scaleY { xsd:decimal },
-             attribute type { xsd:NCName },
-             attribute x { xsd:integer },
-             attribute y { xsd:integer }
-           }?,
-           (element ns1:BeginBitmapFill {
-              attribute bitmapId { xsd:integer },
-              attribute repeat { xsd:boolean }?,
-              attribute rotate0 { xsd:decimal }?,
-              attribute rotate1 { xsd:decimal }?,
-              attribute scaleX { xsd:integer }?,
-              attribute scaleY { xsd:integer }?,
-              attribute smooth { xsd:boolean }?,
-              attribute x { xsd:integer }?,
-              attribute y { xsd:integer }?
-            }
-            | element ns1:BeginFill {
-                attribute alpha { xsd:decimal }?,
-                attribute color { xsd:NMTOKEN }
-              }
-            | element ns1:CurveTo {
-                attribute ax { xsd:integer },
-                attribute ay { xsd:integer },
-                attribute cx { xsd:integer },
-                attribute cy { xsd:integer }
-              }
-            | element ns1:DrawCircle {
-                attribute r { xsd:integer },
-                attribute sections { xsd:integer },
-                attribute x { xsd:integer },
-                attribute y { xsd:integer }
-              }
-            | element ns1:DrawEllipse {
-                attribute height { xsd:integer },
-                attribute width { xsd:integer },
-                attribute x { xsd:integer },
-                attribute y { xsd:decimal }
-              }
-            | element ns1:DrawRect {
-                attribute height { xsd:integer },
-                attribute width { xsd:integer },
-                attribute x { xsd:integer }?,
-                attribute y { xsd:integer }?
-              }
-            | element ns1:DrawRoundRect {
-                attribute height { xsd:integer },
-                attribute r { xsd:integer },
-                attribute width { xsd:integer },
-                attribute x { xsd:integer },
-                attribute y { xsd:integer }
-              }
-            | element ns1:DrawRoundRectComplex {
-                attribute height { xsd:integer },
-                attribute rbl { xsd:integer },
-                attribute rbr { xsd:integer },
-                attribute rtl { xsd:integer },
-                attribute rtr { xsd:integer },
-                attribute width { xsd:integer },
-                attribute x { xsd:integer },
-                attribute y { xsd:integer }
-              }
-            | element ns1:EndLine { empty }
-            | element ns1:LineStyle {
-                attribute alpha { xsd:decimal },
-                attribute color { xsd:NMTOKEN },
-                attribute width { xsd:integer }
-              }
-            | element ns1:LineTo {
-                attribute x { xsd:integer },
-                attribute y { xsd:integer }
-              }
-            | element ns1:MoveTo {
-                attribute x { xsd:integer },
-                attribute y { xsd:integer }?
-              })*,
-           element ns1:EndFill { empty }?
-         }
-       | element ns1:DefineSprite {
-           attribute frameCount { xsd:integer },
-           attribute id { xsd:integer },
-           ns1.PlaceObject,
-           ns1.ShowFrame
-         }
-       | element ns1:ImportAssets {
-           attribute url { xsd:NCName }
-         })*,
-      (element ns1:DefineABC {
-         attribute file { xsd:NCName },
-         attribute name { xsd:NCName }?
-       }
-       | element ns1:SymbolClass {
-           attribute base { xsd:NCName }?,
-           attribute class { xsd:NCName },
-           attribute id { xsd:integer }
-         })*,
-      ns1.ShowFrame
-    }
-ns1.PlaceObject =
-  element ns1:PlaceObject {
-    attribute blendMode { xsd:NCName }?,
-    attribute className { xsd:NCName }?,
-    attribute depth { xsd:integer },
-    attribute hasImage { xsd:boolean }?,
-    attribute id { xsd:integer }?,
-    attribute name { xsd:NCName }?,
-    attribute scaleX { xsd:decimal }?,
-    attribute scaleY { xsd:decimal }?,
-    attribute x { xsd:integer }?,
-    attribute y { xsd:integer }?,
-    (element ns1:Bevel { empty }
-     | element ns1:ColorMatrix { empty }
-     | element ns1:DropShadow { empty }
-     | element ns1:Glow { empty }
-     | element ns1:GradientBevel { empty }
-     | element ns1:GradientGlow { empty }
-     | element ns1:blur { empty })?
-  }
-ns1.ShowFrame = element ns1:ShowFrame { empty }
-ShowFrame =
-  element ShowFrame {
-    attribute count { xsd:integer }?
-  }
-PlaceObject =
-  element PlaceObject {
-    attribute depth { xsd:integer },
-    attribute id { xsd:integer },
-    attribute move { xsd:boolean }?,
-    attribute name { xsd:NCName }?,
-    attribute x { xsd:integer }?,
-    attribute y { xsd:integer }?
-  }
-Tween =
-  element Tween {
-    attribute depth { xsd:integer },
-    attribute frameCount { xsd:integer },
-    element Tw {
+include "opcodes.rnc"
+
+# regexp helpers
+
+aligntype = xsd:string { pattern = "[0-3]" }
+
+hexcolor = xsd:string { pattern = "0x[1-0a-fA-F]{6}" }
+
+blendmode = 
+   ("normal" | "layer" | "multiply" | "screen"
+    | "lighten" | "darken" | "add" | "subtract"
+    | "difference" | "invert" | "alpha" | "erase"
+    | "overlay" | "hardlight" | "")
+
+tweenprop = ("x" | "y" | "scaleX" | "scaleY" | "rotate0" | "rotate1")
+
+gradient = ("linear" | "radial")
+
+# tag helpers
+
+tagid = attribute id { xsd:nonNegativeInteger }
+
+bitmapId = attribute bitmapId { xsd:positiveInteger }
+
+file = attribute file { text }
+
+resourcetag = file, tagid
+
+xpos = attribute x { xsd:integer }
+
+ypos = attribute y { xsd:integer }
+
+alpha = attribute alpha { xsd:decimal }
+
+color = attribute color { hexcolor }
+
+width = attribute width { xsd:integer }
+
+height = attribute height { xsd:integer }
+
+size = height, width
+
+point = xpos, ypos
+
+rectangle = size, point
+
+scaleX = attribute scaleX { xsd:decimal }
+
+scaleY = attribute scaleY { xsd:decimal }
+
+scale = scaleX, scaleY
+
+tagname = attribute name { xsd:NCName }
+
+depth = attribute depth { xsd:integer }
+
+# tags
+
+# This element typically occurs at the beginning of your swf and occurs only
+# once. For validation through this schema the color attribute must be
+# in hexadecimal notation. The hXswfML compiler accepts both hexadecimal
+# notation as decimal/base10
+SetBackgroundColor = element SetBackgroundColor { color }
+
+# This element typically occurs at the beginning of your swf and occurs only once.
+ScriptLimits = element ScriptLimits {
+   attribute maxRecursionDepth { xsd:integer },
+   attribute scriptTimeoutSeconds { xsd:integer } # 0..65535
+}
+
+# This element typically occurs at the beginning of your swf and may occur only
+# once. If this element is present in the swf then the hasMetaData attribute of
+# the FileAttributes element must be set to true. This element must be present
+# if the hasMetadata attribute in the FileAttributes element has been set to true.
+MetaData = element MetaData { file }
+
+# This element will store the raw(compressed) image bytes. You can not display these
+# bytes directly but you must use a DefineShape element where the bitmapId refers
+# to this element (width and height will be read from the jpeg file). Supported file
+# formats are jpg, png, gif. With a SymbolClass element you can link a class that
+# extends flash.display.Bitmap to this element.
+DefineBitsJPEG = element DefineBitsJPEG { resourcetag }
+
+# This element will store the raw bytes of the loaded file. Any file format issupportedd.
+# With a SymbolClass element you can link a class that extends flash.utils.ByteArray
+# to this element.
+DefineBinaryData = element DefineBinaryData { resourcetag }
+
+# This element will store the raw bytes of the loaded sound file. Supported file formats
+# are mp3. With a SymbolClass element you can link a class that extends flash.media.Sound
+# to this element. You can also start this sound with the StartSound element.
+DefineSound = element DefineSound { resourcetag }
+
+# This element will store the outlines of the loaded font. At the moment there is
+# no native ttf parser implemented in hXswfML so you need external software 
+# (like font2.swf) which converts a ttf file to an swf file. Supported file formats 
+# are swf(containing DefineFont tags). With a SymbolClass element you can link 
+# a class that extends flash.text.Font to this element. You can also refer to this 
+# font in a DefineEditText element.
+DefineFont = element DefineFont {
+   resourcetag,
+   tagname?,
+   attribute fontName { text }?,
+   attribute charCodes { text }?
+}
+
+# This element will create a dynamic text field. The optional fontId must refer to a 
+# DefineFont element. Use a PlaceObject element to put this textfield on the display list.
+DefineEditText = element DefineEditText {
+   resourcetag, alpha?, size?,
+   attribute align { aligntype }?,
+   attribute autoSize { xsd:boolean }?,
+   attribute border { xsd:boolean }?,
+   attribute fontClass { text }?,
+   attribute fontHeight { xsd:integer }?,
+   attribute fontID { xsd:integer }?,
+   attribute html { xsd:boolean }?,
+   attribute indent { xsd:integer }?,
+   attribute initialText { text }?,
+   attribute input { xsd:boolean }?,
+   attribute leading { xsd:integer }?,
+   attribute leftMargin { xsd:integer }?,
+   attribute maxLength { xsd:integer }?,
+   attribute multiline { xsd:boolean }?,
+   attribute password { xsd:boolean }?,
+   attribute rightMargin { xsd:integer }?,
+   attribute selectable { xsd:boolean }?,
+   attribute textColor { hexcolor }?,
+   attribute useOutlines { xsd:boolean }?,
+   attribute variableName { text }?,
+   attribute wasStatic { xsd:boolean }?,
+   attribute wordWrap { xsd:boolean }?
+}
+
+# This element will create a Shape object with a solid fill or a bitmap fill. 
+# The bitmapId for the bitmap fill must be a reference to the id in previously 
+# created DefineBitsJPEG element.
+#     The usage is as follows:
+#     1) if you provide a bitmapId no other attributes are required.
+#     2) if you do not provide a bitmapId then then you must use the drawing api 
+# in the child elements. Use a PlaceObject element to put  the shape on 
+# the display list.
+#
+# FIXME: This was combined from autogenerated schema, but it needs more thourough
+# design. It is incorrect as it is now.
+DefineShape = element DefineShape {
+   bitmapId?, tagid,
+   # Sets up a lineStyle and starts line.
+   element LineStyle { alpha, color, width }?,
+   # Sets up a solid fill and starts fill.
+   element BeginFill { alpha, color }?,
+   # Draws a rounded rectangle with different corner radii.
+   # All values are zero, if not specified.
+   element DrawRoundRectComplex {
+      rectangle?,
+      attribute rbl { xsd:decimal }?,
+      attribute rbr { xsd:decimal }?,
+      attribute rtl { xsd:decimal }?,
+      attribute rtr { xsd:decimal }?
+   }?,
+   # Draws a rectangle. All values will be set to zero, if not specified.
+   element DrawRect { rectangle? }?,
+   # Draws an rounded rectangle. All values are zero, if not specified.
+   element DrawRoundRect {
+      rectangle?,
+      attribute r { xsd:decimal }?
+   }?,
+   
+   # merged from here -----------
+   
+   # Sets up a gradient fill and starts fill.
+   element BeginGradientFill {
+      scale, point,
+      attribute alphas { text },
+      attribute colors { text },
+      attribute ratios { text },
+      attribute rotate0 { xsd:decimal },
+      attribute rotate1 { xsd:decimal },
+      attribute type { gradient }
+   }?,
+   # Sets up a bitmap fill and starts fill.
+   element BeginBitmapFill {
+      bitmapId, scale, point,
+      attribute repeat { xsd:boolean }?,
+      attribute rotate0 { xsd:decimal }?,
+      attribute rotate1 { xsd:decimal }?,
+      attribute smooth { xsd:boolean }?
+   }?,
+   # Draws a curved line from the last drawing position to the given
+   # position. ax = anchor point x, ay = anchor pointy, cx = control
+   # point x, cy = control point y. All values are set to zero,
+   # if not specified.
+   element CurveTo {
+      attribute ax { xsd:integer }?,
+      attribute ay { xsd:integer }?,
+      attribute cx { xsd:integer }?,
+      attribute cy { xsd:integer }?
+   }?,
+   # Draws a circle with middle point set to the given position. The value of 
+   # the sections attribute is the number of segments the circle is made of. 
+   # Attribute r holds the radius value. All values are set to zero, except
+   # for sections, which is 16 by default.
+   element DrawCircle {
+      point?,
+      attribute r { xsd:integer }?,
+      attribute sections { xsd:integer }?
+   }?,
+   # Draws an ellipse. All values are set to zero, if not specified.
+   element DrawEllipse { rectangle? }?,
+   # Ends the line.
+   element EndLine { empty }?,
+   # Draws a line from the last drawing position to the given position.
+   element LineTo { point }?,
+   # Moves the drawing position
+   element MoveTo { point }?,
+   # Ends the fill.
+   element EndFill { empty }?
+}
+
+# This element will (despite the name) create a movie clip with one or more frames. 
+# With the SymbolClass element you can link a class that extends flash.display.Movieclip 
+# or flash.display.Sprite to this element. If you link a class that extends Sprite 
+# to this element while it has multiple frames, only the first frame will be taken 
+# into consideration. The last child element must always be a ShowFrame element. 
+# Use PlaceObject to put the movie clip on the display list.
+#
+# Not sure, but seems like only one PlaceObject should be allowed.
+DefineSprite = element DefineSprite {
+   resourcetag,
+   attribute frameCount { xsd:integer }?,
+
+   (PlaceObject
+    | RemoveObject
+    | StartSound
+    | FrameLabel
+    | Tween
+    | Custom)+,
+   ShowFrame
+}
+
+# This element will create a button with 4 states: up, over, down, hit. You must at least 
+# use 1 ButtonState element. With the SymbolClass element you can link a class which 
+# extends flash.display.SimpleButton to this element. Use a PlaceObject element to put 
+# the button on the display list.
+DefineButton = element DefineButton {
+   tagid,
+   element ButtonState {
+      tagid, depth,
+      attribute down { xsd:boolean }?,
+      attribute hit { xsd:boolean }?,
+      attribute over { xsd:boolean }?,
+      attribute up { xsd:boolean }?
+   }+
+}
+
+# This element will provide a scaling grid for a DefineSprite of DefineButton element.
+DefineScalingGrid = element DefineScalingGrid { rectangle }
+
+# This element will hold a block of ActionscriptByteCode. This code must be
+# compiled actionscript or haXe script by a compiler such as the Flash IDE, 
+# Flex compiler or the haXe compiler. Supported file formats are xml, 
+# swf and abc. This element will be generated automatically if you provide 
+# a class for the base attribute in a SymbolClass element. If the file is 
+# an abc file you can supply a name for it. Do not include the tag header 
+# (tag or tag length). If the file is a swf file you can use the isBoot attribute
+# to include the original symbol class tag that points to the document class 
+# inside the abc file.
+DefineABC = element DefineABC {
+   tagname, file?,
+   attribute isBoot { xsd:boolean }?,
+   (abcfiles | abcfile)+
+}
+
+# This element will put a previously created symbol on the display list. The id 
+# attribute must refer to a DefineEditText,DefineShape,DefineSprite or DefineButton 
+# element. You must conclude with a ShowFrame tag to render everything previously 
+# put on the display list to the screen.The move and id attributes indicate whether 
+# a new character is being added to the display list, or a character already on 
+# the display list is being modified:
+#     -move = false and id is present: A new character (id) is placed on the display 
+#             list at the specified depth.
+#     -move = true and id is absent: The character at the specified depth is modified. 
+#             Because any given depth can have only one character, no id is required.
+#     -move = true and id is present: The character at the specified depth is removed, 
+#             and a new character (id) is placed at that depth.
+PlaceObject = element PlaceObject {
+   depth, tagid, tagname, point?, scale?,
+   attribute blendMode { blendmode }?,
+   attribute className { xsd:NCName }?,
+   attribute hasImage { xsd:boolean }?,
+   attribute bitmapCache { xsd:boolean }?,
+   attribute move { xsd:boolean }?,
+   attribute rotate0 { xsd:decimal }?,
+   attribute rotate1 { xsd:decimal }?,
+   # TODO: write all the filter definitions.
+   (element Bevel { empty }
+    | element ColorMatrix { empty }
+    | element DropShadow { empty }
+    | element Glow { empty }
+    | element GradientBevel { empty }
+    | element GradientGlow { empty }
+    | element Blur { empty })
+}
+
+# This element removes a symbol previously put on the display list at the given depth.
+RemoveObject = element RemoveObject { depth }
+
+# This element starts playing a sound that was previously defined with a DefineSound 
+# element. To stop the playing sound, use StartSound with the stop attribute set to true.
+StartSound = element StartSound {
+   tagid,
+   attribute loopCount { xsd:integer }?,
+   attribute stop { xsd:boolean }?
+}
+
+# This element will provide the means to link a class name to a previously created 
+# symbol such as a DefineSound(flash.media.Sound), DefineButton(flash.display.SimpleButton), 
+# DefineSprite(flash.display.Sprite, flash.display.MovieClip), DefineFont(flash.text.Font), 
+# DefineBinaryData(flash.utils.ByteArray), DefineBitsJPEG(flash.display.Bitmap). 
+# If you supply a value for the base attribute then hXswfML will automatically generate 
+# and compile a class and will add it in DefineABC element below your SymbolClass element.
+# If you do not supply a value for the base attribute then your script (which you add through 
+# a DefineABC element) must have a class with the correct name and that extends the correct 
+# base class. In order for the FlashPlayer to know what class should be use as the main entry 
+# point (the class that will run when the swf is loaded) you must supply a SymbolClass element 
+# with id=0 and the name="MyDocumentClass" (this is always name="flash.Boot" in the case 
+# of haXe).Update: Since haxe 2.07 flash.Boot is replaced by a random name. To overcome 
+# the problem of not knowing what the document class is in a haXe swf, a new attribute 
+# 'isBoot' was added to the DefineAbc tag. If set to true, hxswfml will add a SymbolClass 
+# tag for the document class automatically.
+SymbolClass = element SymbolClass {
+   tagid,
+   attribute base { xsd:NCName }?,
+   attribute class { xsd:NCName }
+}
+
+# This element will provide the means to link a class name to a previously created symbol 
+# such as a DefineSound (Sound), DefineButton(Button), DefineSprite(MovieClip), DefineFont(Font).
+ExportAssets = element ExportAssets { 
+   attribute class { xsd:NCName },
+   attribute id { xsd:nonNegativeInteger }
+}
+
+# This element will import assets from a runtime shared library.
+ImportAssets = element ImportAssets { 
+   attribute url { xsd:string }
+}
+
+# This element gives a label to the current frame. When the anchor attribute is set
+# to false, you can use this frame label in your script for actions as gotoAndPlay('someLabel');.
+# If the anchor is set to true you can reference the frame in the url: movie.swf#someLabel.
+FrameLabel = element FrameLabel {
+   tagname,
+   attribute anchor { xsd:boolean }?
+}
+
+# This element allows you to create your own swf tags or use an swf tag that is
+# currently not supported by hxswfml. If tagId is provided, the data should
+# contain the bytes for the tag body and have to be in little Endian order.
+# Don't include the tag header (tag id or tag length) in the data. If you omit
+# the tagId it must be present along with the tag length in the data or file.
+# If a path to a file is supplied that will be used. Otherwise you need to supply
+# the bytes as a comma seperated list in the data attribute.
+Custom = element Custom {
+   file?,
+   attribute tagId { xsd:positiveInteger }?,
+   attribute data { xsd:string }?,
+   attribute comment { xsd:string }?
+}
+
+# This element can occur only once and must be the first element.
+# If the swf contains a DefineABC element then the actionscript3
+# attribute must be set to true so that the Flash Player will set
+# the VM to AMV2. If the swf contains a DefineMeta element then
+# the hasMetaData attribute must be set to true and vice versa:
+# if the hasMetaData attribute has been set to true then the swf
+# must contain a DefineMetadata element. To allow local playback
+# of swf with access to network locations the useNetwork attribute
+# must be set to true. Access to local files is not available in
+# that case. If the swf needs to reference local files, then
+# the useNetwork attribute must be set to false.
+FileAttributes = element FileAttributes {
+   attribute actionscript3 { xsd:boolean }?,
+   attribute hasMetaData { xsd:boolean }?,
+   attribute useDirectBlit { xsd:boolean }?,
+   attribute useGPU { xsd:boolean }?,
+   attribute useNetwork { xsd:boolean }?
+}
+
+# This element will render everything previously put on the display list with PlaceObject.
+ShowFrame = element ShowFrame {
+   attribute count { xsd:integer }?
+}
+
+# This element is a shortcut for many consecutieve placeObjects to create
+# a tweening effect. This element must be preceeded by a PlaceObject element.
+Tween = element Tween {
+   depth,
+   attribute frameCount { xsd:integer },
+   element Tw {
       attribute end { xsd:decimal },
-      attribute prop { xsd:NCName },
+      attribute prop { tweenprop },
       attribute start { xsd:decimal }
-    }+
-  }
+   }+
+}
+
+# This element is the last element of the entire movie and signals the end to
+# the Flash Player. This is also the last element in any DefineSprite elements.
+# This element is added automatically by the hXswfML compiler, so under normal
+# conditions you should never use or add this element yourself.
 EndFrame = element EndFrame { empty }
+
+start = element swf {
+   attribute compressed { xsd:boolean }?,
+   attribute fps { xsd:integer }?,
+   attribute frameCount { xsd:integer }?,
+   attribute version { xsd:integer }?,
+   size?,
+
+   FileAttributes?,
+   SetBackgroundColor?,
+   MetaData?,
+   (ScriptLimits
+    | (DefineSound, StartSound))?,
+   (PlaceObject
+    | ShowFrame
+    | DefineSound
+    | StartSound
+    | Tween
+    | DefineABC 
+    | DefineBinaryData
+    | DefineBitsJPEG
+    | DefineButton
+    | DefineEditText 
+    | DefineFont
+    | DefineShape
+    | DefineSprite
+    | DefineScalingGrid
+    | ExportAssets
+    | ImportAssets
+    | FrameLabel
+    | RemoveObject
+    | SymbolClass
+    | Tween
+    | Custom)*,
+   EndFrame?
+}
