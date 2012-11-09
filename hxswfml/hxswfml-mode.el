@@ -52,13 +52,13 @@ names when automatically generating them. Possible values are:
   Any string - that string is prepended to the generated name.
   A function, this function is called with the file name
      relative to the directory, where the generation started.
-If this variable is `nil' or `hxswf-genclass-prefix-function'
-Then it behaves like `hxswf-genclass-prefix-function' would,
+If this variable is `nil' or `hxswfml-genclass-prefix-function'
+Then it behaves like `hxswfml-genclass-prefix-function' would,
 i.e. sub-directory names are taken to be parts of the package
 names. For conversion rules see documentation for
-`hxswf-genclass-prefix-function'.")
+`hxswfml-genclass-prefix-function'.")
 
-(defcustom hxswf-genclass-prefix-substitution "_"
+(defcustom hxswfml-genclass-prefix-substitution "_"
   "The character used to replace invalid characters in
 generated prefices for class names"
   :type 'string
@@ -75,7 +75,16 @@ library files."
   :type 'list
   :group 'hxswfml-mode)
 
-(defun hxswfml-genclass-prefix-function (dir)
+(defvar hxswfml-install-dir
+  (file-name-directory load-file-name)
+  "The directory whre HaXe SWFMill mode is installed")
+
+(defvar hxswfml-genclass-prefix-function
+  #'hxswfml--genclass-prefix-function
+  "The default function for processing directory names and
+creating suffices based on them")
+
+(defun hxswfml--genclass-prefix-function (dir)
   "Converts the directory name into a package name using these
 rules:
   - split the directory name on slashes ignoring empty results.
@@ -88,26 +97,27 @@ rules:
       with underscore.
 You may change what character is used for replacing invalid
 characters in the prefix by customizing
-`hxswf-genclass-prefix-substitution' variable"
+`hxswfml-genclass-prefix-substitution' variable"
   (let ((first-letter " ")
         result)
     (dolist (part (split-string dir "/" t)
                   (mapconcat #'identity (reverse result) "."))
       (setf (aref first-letter 0) (aref part 0))
       (unless (string-match "[[:alpha:]]" first-letter)
-        (setf (aref part 0) hxswf-genclass-prefix-substitution))
+        (setf (aref part 0) hxswfml-genclass-prefix-substitution))
       (when (> (length part) 1)
         (dotimes (i (1- (length part)))
           (setf (aref first-letter 0) (aref part (1+ i)))
           (unless (string-match "\\w\\|\\." first-letter)
             (setf (aref part (1+ i))
-                  hxswf-genclass-prefix-substitution)))
+                  (aref hxswfml-genclass-prefix-substitution 0))))
         (when (char-equal (aref part (1- (length part))) ?\.)
           (setf (aref part (1- (length part)))
-                hxswf-genclass-prefix-substitution)))
+                (aref hxswfml-genclass-prefix-substitution 0))))
       (push part result))))
 
 (defun hxswfml--int-suffix (word)
+  "Returns position before the last digit in the WORD."
   (let ((pos (1- (length word))))
     (while (and
             (> pos -1)
@@ -118,21 +128,27 @@ characters in the prefix by customizing
     (1+ pos)))
 
 (defun hxswfml--ensure-unique-name (name hash)
-  (let ((prefix
-         (substring name 0 (hxswfml--int-suffix name)))
-        (suffix 0) result)
-    (when (> (length result) (length prefix))
-      (setq suffix
-            (string-to-number
-             (substring result (length prefix)))))
-    (while (gethash (format "%s%d" prefix (incf suffix)) names))
-    (puthash (setq result (format "%s%d" prefix (incf suffix))) t)
-    result))
+  "Ensure that the NAME is unique in HASH, i.e. generate a new
+name, if one is in hash and return it. HASH is updated with the
+new name."
+  (if (gethash name hash)
+      (let ((prefix
+             (substring name 0 (hxswfml--int-suffix name)))
+            (suffix 0) result)
+        (when (> (length result) (length prefix))
+          (setq suffix
+                (string-to-number
+                 (substring result (length prefix)))))
+        (while (gethash (format "%s%d" prefix (incf suffix)) names))
+        (puthash (setq result (format "%s%d" prefix (incf suffix)))
+                 t hash)
+        result)
+    (puthash name t hash) name))
 
 (defun hxswfml--pascal-classname (file &optional names)
   "Translates the FILE into PascalCase while also removing
 non-alphanumeric characters. Unless the first character is
-not a letter, the `hxswf-genclass-prefix-substitution'
+not a letter, the `hxswfml-genclass-prefix-substitution'
 is prepended to the name."
   (let ((mask " ")
         (result
@@ -141,19 +157,19 @@ is prepended to the name."
     (setf (aref mask 0) (aref result 0))
     (unless (string-match "[[:alpha:]]" mask)
       (setq result
-            (concat hxswf-genclass-prefix-substitution result)))
-    (when (and names (gethash result names))
+            (concat hxswfml-genclass-prefix-substitution result)))
+    (when names
       (setq result (hxswfml--ensure-unique-name result names)))
     result))
 
 (defun hxswfml--underscore-classname (file &optional names kind)
   "Replaces all non-aphanumeric characters in FILE by
-`hxswf-genclass-prefix-substitution'. Depending on KIND
+`hxswfml-genclass-prefix-substitution'. Depending on KIND
 will also either upcase, downcase or leave the case of the
 remaining characters unchanged. Possible values for KIND are
 `mixed' and `upper'. Everything else is treated as downcase.
 If first characters is not a letter, then
-`hxswf-genclass-prefix-substitution' is prepended to the name.
+`hxswfml-genclass-prefix-substitution' is prepended to the name.
 If NAMES (a hash-map) already contains the name this function
 would have generated otherwise, will append an integer, while
 firstly searching for an integral part at the end of the generated
@@ -168,33 +184,38 @@ name."
             ((eq kind 'uper) #'upcase)
             (t #'downcase))
            (split-string file "[^[:alnum:]]"))
-          hxswf-genclass-prefix-substitution)))
+          hxswfml-genclass-prefix-substitution)))
     (setf (aref mask 0) (aref result 0))
     (unless (string-match "[[:alpha:]]" mask)
       (setq result
-            (concat hxswf-genclass-prefix-substitution result)))
-    (when (and names (gethash result names))
+            (concat hxswfml-genclass-prefix-substitution result)))
+    (when names
       (setq result (hxswfml--ensure-unique-name result names)))
     result))
 
-(defun hxswfml--insert-directory (dir &optional names)
+(defun hxswfml--insert-directory (dir &optional names prefix)
   "Inserts all resources found in DIR directory into
 current buffer."
-  (let ((ignored (assoc hxswfml-assets-extensions 'ignore)))
+  (let ((ignored (cdr (assoc 'ignore hxswfml-assets-extensions)))
+        (prefix
+         (or prefix
+             (file-name-base (directory-file-name dir)))))
     (dolist (file (directory-files dir))
       (unless (or (string= file ".")
                   (string= file "..")
                   (and ignored (string-match ignored file)))
-        (if (file-directory-p file)
-            (hxswfml--insert-directory file names)
-          (hxswfml--insert-resource file dir names))))))
+        (if (file-directory-p (expand-file-name file dir))
+            (hxswfml--insert-directory
+             (expand-file-name file dir) names
+             (concat prefix "/" file))
+          (hxswfml--insert-resource file prefix names))))))
 
 (defun hxswfml--insert-resource (file dir &optional names)
   "Inserts a tag for file, if it matches any of descriptors in
 `hxswfml-assets-extensions'"
   (let ((prefix-generator
          (or hxswfml-genclass-prefix
-             hxswf-genclass-prefix-function))
+             hxswfml-genclass-prefix-function))
         (name-generator hxswfml-genclass-pattern)
         (extensions hxswfml-assets-extensions)
         prefix name kind)
@@ -202,35 +223,41 @@ current buffer."
           (cond
            ((stringp prefix-generator)
             prefix-generator)
-           ((functionp prefix-generator)
+           ((fboundp prefix-generator)
             (funcall prefix-generator dir))
-           (t ""))
+           (t nil))
           name
           (cond
            ((eq name-generator 'underscore)
-            (hxswfml--underscore-classname file names))
+            (hxswfml--underscore-classname
+             (file-name-sans-extension file) names))
            ((eq name-generator 'underscore-mixed)
-            (hxswfml--underscore-classname file names 'mixed))
+            (hxswfml--underscore-classname
+             (file-name-sans-extension file) names 'mixed))
            ((eq name-generator 'underscore-upper)
-            (hxswfml--underscore-classname file names 'upper))
-           (t (hxswfml--pascal-classname file names))))
+            (hxswfml--underscore-classname
+             (file-name-sans-extension file) names 'upper))
+           (t (hxswfml--pascal-classname
+               (file-name-sans-extension file) names))))
     (catch 't
       (while extensions
         (setq kind (car extensions)
               extensions (cdr extensions))
         (unless (eq (car kind) 'ignore)
           (when (string-match (cdr kind) file)
-            (insert "<" (symbol-name (car kind)) "file=\""
-                    file "\" class=\"" prefix
-                    (if prefix "." "") name "\"/>\n")
+            (insert "<" (symbol-name (car kind))
+                    " file=\"" (if dir (concat dir "/") "")
+                    file "\" class=\"" 
+                    (if prefix (concat prefix ".") "")
+                    name "\"/>\n")
             (throw 't nil)))))))
 
 (defun hxswfml--generate-from-directory (dir target)
   "Does the job of `hxswfml-generate-from-directory'"
   (with-temp-file target
-    (inert "<lib>")
-    (hxswfml--insert-directory dir (make-hash-table))
-    (inert "</lib>")))
+    (insert "<lib>\n")
+    (hxswfml--insert-directory dir (make-hash-table :test #'equal))
+    (insert "</lib>")))
 
 ;;;###autoload
 (defun hxswfml-generate-from-directory (dir target)
@@ -244,10 +271,14 @@ customized through `hxswfml-assets-extensions' variable."
 FWhere should I save the generated library? ")
   (catch 't
     (when (file-exists-p target)
-      (unless (yes-or-no-p
-               (format "File <%s> already exists, overwrite?" target)
-               (throw 't nil))))
-    (hxswfml--generate-from-directory dir target)))
+      (unless
+          (yes-or-no-p
+           (format "File <%s> already exists, overwrite? "
+                   target))
+        (throw 't nil)))
+    (hxswfml--generate-from-directory dir target)
+    (find-file target)
+    (hxswfml-mode)))
 
 (defun hxswfml-validate-files ()
   "Searches for file paths in the current buffer and tries to
@@ -282,8 +313,7 @@ resolve them relatively to the file displayed in the buffer."
   "Major mode for editing HaXe SWFMill files."
   (add-to-list
    'rng-schema-locating-files
-   (expand-file-name "hxswfml-schemas.xml"
-                     (file-name-directory load-file-name)))
+   (expand-file-name "hxswfml-schemas.xml" hxswfml-install-dir))
   (rng-auto-set-schema))
 
 (provide 'hxswfml-mode)
