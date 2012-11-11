@@ -40,6 +40,9 @@
 (require 'haxe-help)
 (require 'xml)
 
+;; TODO: obtain the values of $HAXE_HOME and $HAXE_LIBRARY_PATH
+;; perhaps alert the user, if these are not set!
+
 (defcustom haxe-completion-method #'haxe-complete-dot-ac
   "The function to use to perform after-dot completion. This can be either:
 `haxe-complete-dot-ac' or `haxe-complete-dot-ido'. `haxe-complete-dot-ac' uses

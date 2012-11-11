@@ -23,6 +23,8 @@ import StringIO
 from xml.dom import minidom
 from xml.dom.minidom import Document
 
+connect_attempts = 10
+
 parser = OptionParser()
 parser.add_option(
     '-x', '--xml', dest = 'xml',
@@ -387,7 +389,7 @@ def compileFile():
         parseHaXeDoc('./doc.xml', tagsPrinter())
 
 def compileHxml():
-    global free_socket
+    global free_socket, connect_attempts
     startHaXeServer()
     if not free_socket:
         free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -397,7 +399,11 @@ def compileHxml():
             '%s\n--no-output\n-xml ./doc.xml %s\n\0' % \
             (options.hxml,
              '\n' + options.arguments if options.arguments else ''))
+        print 'sent to haxe: <%s\n--no-output\n-xml ./doc.xml %s>' % \
+            (options.hxml,
+             '\n' + options.arguments if options.arguments else '')
         response, errno = free_socket.recvfrom(4096)
+        print 'haxe responded: %s' % response
         if response or errno:
             # There was something wrong in that how we built the command line
             # or the file can't be compiled with the current settings, rethrow
@@ -410,7 +416,17 @@ def compileHxml():
         free_socket.close()
         # Sometimes the server would not respond, or we'd get a broken pipe
         # or disconnect etc. It's not very stable... so just try it again.
-        compileHxml()
+        if reconnect_attemps > 0:
+            reconnect_attemps -= 1
+            compileHxml()
+        else:
+            try:
+                Popen([options.compiler, '--no-output', '-xml', './doc.xml',
+                       options.hxml, options.arguments if options.arguments else '')])
+            except Exception as e:
+                sys.stderr.write(str(e))
+                if free_socket: free_socket.close()
+                sys.exit(-1)
     else:
         parseHaXeDoc('./doc.xml', tagsPrinter())
                     
