@@ -38,6 +38,7 @@
 (require 'haxe-log)
 (require 'haxe-project)
 (require 'haxe-help)
+(require 'haxe-compiler-mode)
 (require 'xml)
 
 ;; TODO: obtain the values of $HAXE_HOME and $HAXE_LIBRARY_PATH
@@ -49,49 +50,6 @@
 auto-complete library to show the completion options, `haxe-complete-dot-ido' uses
 ido to do the same."
   :type 'function :group 'haxe-mode)
-
-(defcustom haxe-compiler "haxe"
-  "The path to HaXe compiler"
-  :type 'string :group 'haxe-mode)
-
-(defcustom haxe-server-host "127.0.0.1"
-  "The host to run HaXe compiler daemon"
-  :type 'string :group 'haxe-mode)
-
-(defcustom haxe-server-port 1257
-  "The default port to connect to on HaXe compiler daemon"
-  :type 'integer :group 'haxe-mode)
-
-(defvar haxe-compiler-process "haxe-compiler"
-  "The name given to the HaXe compiler process when started by automake
-or auto-completion")
-
-(defvar haxe-network-process nil
-  "The reference to the network connection opened to HaXe complier")
-
-(defvar haxe-network-process-buffer "haxe-network-process-buffer"
-  "The buffer to hold the network process connecting to HaXe compiler server.
-This is needed because otherwise the process get's lost somehow D:")
-
-(defvar haxe-received-status 2
-  "HaXe compiler will send large completion results in chunks, in order to
-accumulate all received chunks we need sort of a state-machine. This variable
-holds the status of receiving the info.
-	0 - received first chunk,
-	1 - received last chunk,
-	2 - receiving junk (error messages etc).")
-
-(defvar haxe-last-compiler-response nil
-  "This variable is updated by the filter function that reads from the 
-connection to HaXe compiler, it's content is the last response received")
-
-(defvar haxe-eol "\n"
-  "The string used as line separator when building commands to HaXe compiler")
-
-(defvar haxe-response-terminator "</list>\n"
-  "This variable is set according to the kind of completion we request
-it may be \"</list>\n\" or \"</type>\n\" (first is for dot completion
-the second is for paren hint")
 
 (defvar haxe-ac-dot-sources
   '((init . haxe-ac-init)
@@ -121,9 +79,6 @@ HaXe compiler. This variable is set automatically, don't change it")
 (defvar haxe-completion-pos -1
   "The position the completion started recording")
 
-(defvar haxe-completion-requested nil
-  "This variable is set to T when dot autocompletion starts")
-
 (defvar haxe-folding-delimiters '(?\ ?\t ?\n)
   "Characters used to delimit the words when padding a region")
 
@@ -144,32 +99,6 @@ required for the completion exists. If this variable is not NIL, while
 creating of the new temporary file, the old one will be removed. This is
 needed so we don't eventually feed the compiler the old sources from the
 completion directory")
-
-(defun haxe-connect-to-compiler-server (&optional wait)
-  "Starts HaXe compilations server and connects to it.
-If WAIT is NIL, will try to connect immediately, otherwise will
-wait WAIT seconds.
-This function is bound to \\[haxe-connect-to-compiler-server]"
-  (interactive)
-  (haxe-start-waiting-server)
-  (unless wait (setq wait 0))
-  (let ((old-proc (get-process haxe-compiler-process)))
-    (if (and old-proc (equal (process-status old-proc) 'open))
-        (setq haxe-network-process old-proc)
-      (run-at-time
-       wait nil
-       #'(lambda ()
-           (haxe-log 3 "Trying to connect to HaXe compiler on %s:%s"
-                     haxe-server-host haxe-server-port)
-           (setq haxe-network-process
-                 (make-network-process
-                  :name haxe-compiler-process
-                  :family 'ipv4
-                  :host haxe-server-host
-                  :service haxe-server-port
-                  :buffer haxe-network-process-buffer
-                  :filter #'haxe-listen-filter))
-           (haxe-log 3 "Connected to HaXe compiler"))))))
 
 (defun haxe-package ()
   "Get the name of the package of the current file"
@@ -570,19 +499,6 @@ This function is bound to \\[haxe-hint-paren]"
               haxe-completion-requested t)
         (haxe-ac-init)))))
 
-(defun haxe-start-waiting-server ()
-  "Starts HaXe `haxe-compiler' on `haxe-server-host':`haxe-server-port'
-with \"--wait\" for the future requests made by autocompletion
-or flymake.
-This function is bound to \\[haxe-start-waiting-server]"
-  (interactive)
-  (unless (get-buffer-process "*haxe-waiting-server*")
-    (shell-command
-     (concat haxe-compiler " --wait "
-             haxe-server-host ":"
-             (number-to-string haxe-server-port) "&")
-     "*haxe-waiting-server*")))
-
 (defun haxe-parse-ac-response (xml)
   "Parses the completion options supplied by HaXe compiler.
 XML has to contain child nodes named \"i\", their \"n\" attribute
@@ -824,6 +740,7 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
     (setq haxe-completion-requested nil)
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 
+;; FIXME: this seems useless as this is what make-directory does...
 (defun haxe-ensure-directories (path &optional root)
   (unless (listp path) (setq path (split-string path "/" t)))
   (unless root (setq root "/"))

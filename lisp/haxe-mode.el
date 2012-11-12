@@ -90,6 +90,7 @@
 (require 'haxe-project)
 (require 'haxe-completion)
 (require 'haxe-log)
+(require 'haxe-compiler-mode)
 (require 'custom/create-project)
 (require 'ede/haxe)
 (require 'ede/haxe-speedbar)
@@ -851,9 +852,9 @@ with HaXe macro metadata." nil)
   "The location of HaXe built-ins, it is needed for TAGS generation"
   :type 'string :group 'haxe-mode)
 
-(defvar old-flymake-after-change-function nil
-  "Stores the function flymake uses to update after code change
-once we turn it off")
+;; (defvar old-flymake-after-change-function nil
+;;   "Stores the function flymake uses to update after code change
+;; once we turn it off")
 
 (defun haxe-flymake-install ()
   "Install flymake stuff for HaXe files."
@@ -920,55 +921,6 @@ so that it doesn't kill our files..."
   (make-temp-file
    (file-name-nondirectory
     (file-name-sans-extension file-name)) nil "tmp"))
-
-(defun haxe-listen-filter (proc input)
-  "Is called by the running HaXe server to report events, if any."
-  ;; We are only interested in recording the completion XMLs
-  (block nil
-    (cond
-     ((null input)
-      (haxe-log 3 "HaXe compiler sends no input")
-      (when (= haxe-received-status 2)
-	(setq haxe-last-compiler-response "No input"
-	      haxe-completion-requested nil)
-	(return-from nil)))
-     ((and (= haxe-received-status 2) (not (null input))
-	   input (char-equal (aref input 0) ?<))
-      (if (or (and (string= (substring input 0 6) "<list>")
-		   (string= haxe-response-terminator "</list>\n"))
-	      (and (string= (substring input 0 6) "<type>")
-		   (string= haxe-response-terminator "</type>\n")))
-	  (setq haxe-received-status 0
-		haxe-last-compiler-response input)
-	(progn
-	  (setq haxe-last-compiler-response "Wrong tag"
-		haxe-completion-requested nil)
-	  (haxe-log 3 "Received wrong result, expected %s, received %s"
-		    (substring haxe-response-terminator 0 -1) input)
-	  (return-from nil))))
-     ((= haxe-received-status 1)
-      (setq haxe-last-compiler-response (concat haxe-last-compiler-response input)))
-     ((= haxe-received-status 2)
-      (haxe-log 3 "Compiler had something to say:
-
-'%s'
-
-But chosen a bad time to do it" input)
-      (setq haxe-last-compiler-response nil)
-      (return-from nil)))
-    
-    (if (and (< haxe-received-status 2)
-	     (string= (substring haxe-last-compiler-response
-				 (- (length haxe-response-terminator)))
-		      haxe-response-terminator))
-	(setq haxe-received-status 2)
-      (setq haxe-received-status 1))
-
-    (haxe-log 3 "filter received: %s %s"
-	      haxe-received-status
-	      (string= (substring haxe-last-compiler-response
-				  (- (length haxe-response-terminator)))
-		       haxe-response-terminator))))
 
 ;; ----------------------------------------------------------------------------
 ;; Ritchie Turner (blackdog@cloudshift.cl)

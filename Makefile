@@ -24,11 +24,13 @@ byte-compile:
 	emacs -Q -L ./lisp -batch -f batch-byte-compile ./lisp/custom/*.el
 	emacs -Q -L ./lisp -batch -f batch-byte-compile ./lisp/ede/*.el
 	emacs -Q -L ./lisp -batch -f batch-byte-compile ./lisp/*.el
+	emacs -Q -L ./lisp -batch -f batch-byte-compile ./hxswfml/*.el
 
 clean:
 	rm -f ./lisp/*.elc
 	rm -f ./lisp/custom/*.elc
 	rm -f ./lisp/ede/*.elc
+	rm -f ./hxswfml/*.elc
 	rm -rf ${DOCDST}
 	rm -rf ${PACKAGE}
 

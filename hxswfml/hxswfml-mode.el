@@ -28,6 +28,11 @@
 
 ;;; Code:
 
+(require 'cl)
+(require 'nxml-mode)
+(require 'eieio)
+(require 'thingatpt)
+
 (defcustom hxswfml-compiler "hxswfml"
   "The location of HXSwfML executable"
   :type 'string
@@ -44,7 +49,8 @@ from assets.
       converted to all upercase.
   `underscore-mixed' keeps the case the same as it was in
       original file names.
-The default is `pascal'.")
+The default is `pascal'."
+  :type 'symbol :group 'hxswfml-mode)
 
 (defcustom hxswfml-genclass-prefix nil
   "This variable specifies how to prefix generated class
@@ -56,7 +62,8 @@ If this variable is `nil' or `hxswfml-genclass-prefix-function'
 Then it behaves like `hxswfml-genclass-prefix-function' would,
 i.e. sub-directory names are taken to be parts of the package
 names. For conversion rules see documentation for
-`hxswfml-genclass-prefix-function'.")
+`hxswfml-genclass-prefix-function'."
+  :group 'hxswfml-mode)
 
 (defcustom hxswfml-genclass-prefix-substitution "_"
   "The character used to replace invalid characters in
@@ -125,7 +132,8 @@ for generating classes. You shouldn't need to set it yourself.")
          :initfrom nil
          :type (or null hash-table)
          :documentation "The kyes (hash-tables) pointing to the 
-trie leafs which have values")))
+trie leafs which have values"))
+  "The class for manipulating prefix tries")
 
 (defun hxswfml--genclass-prefix-function (dir)
   "Converts the directory name into a package name using these
@@ -182,7 +190,7 @@ new name."
           (setq suffix
                 (string-to-number
                  (substring result (length prefix)))))
-        (while (gethash (format "%s%d" prefix (incf suffix)) names))
+        (while (gethash (format "%s%d" prefix (incf suffix)) hash))
         (puthash (setq result (format "%s%d" prefix (incf suffix)))
                  t hash)
         result)
@@ -560,5 +568,9 @@ resolve them relatively to the file displayed in the buffer."
   (rng-auto-set-schema))
 
 (provide 'hxswfml-mode)
+
+;; Local Variables:
+;; byte-compile-warnings: (not cl-functions)
+;; End:
 
 ;;; hxswfml-mode.el ends here
