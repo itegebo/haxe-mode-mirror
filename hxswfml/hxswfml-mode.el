@@ -290,7 +290,7 @@ current buffer."
           (when (string-match (cdr kind) file)
             (when genclass
               (hxswfml-class-from-template 
-               dir file name (car kind)))
+               genclass (concat dir file) name (car kind)))
             (insert "<" (symbol-name (car kind))
                     " file=\"" (if dir (concat dir "/") "")
                     file "\" class=\"" 
@@ -400,7 +400,7 @@ uses single character for a key, except for `t' symbol, which, if present
 as a key is the key for the value one has to substitute with."
   (loop for (key . value) in alist
         with trie-data = (make-hash-table)
-        with trie-keys = (make-hash-table)
+        with trie-keys = (make-hash-table :test #'equal)
         for leaf =
         (reduce (lambda (branch c)
                   (or (gethash c branch)
@@ -416,7 +416,13 @@ as a key is the key for the value one has to substitute with."
 
 (defun hxswfml-update-trie (trie alist)
   "Replaces all TRIE's keys with new values from ALIST"
-  )
+  (loop for (key . value) in alist
+        with trie-keys = (oref trie keys)
+        for table = (gethash key trie-keys)
+        do (if table
+               (puthash t value table)
+             (error "Key `%s' is not in the trie" key))
+        finally (return trie)))
 
 ;; TODO: This may be useful as a separate package.
 (defun hxswfml-class-from-template (save-in file class-name tag)
@@ -452,9 +458,11 @@ value of TAG and it's corresponding value from
         (expand-file-name
          (concat class-name ".hx")
          (hxswfml--ensure-directory dir-with-package))
+      (message "Generating outline: <%s/%s>"
+               dir-with-package (concat class-name ".hx"))
       (insert (hxswfml-replace-trie
                hxswfml-class-template
-               (oref hxswfml-genclass-trie trie)))))
+               (oref hxswfml-genclass-trie trie))))))
 
 ;;;###autoload
 (defun hxswfml-generate-from-directory
@@ -482,8 +490,12 @@ setting `hxswfml-default-superclasses' variable."
           (lib-file-i
            (completing-read
             "Library XML will be generated in: "
-            (list (concat dir-i hxswfml-default-library-file))
-            nil t (concat dir-i hxswfml-default-library-file)))
+            (list (concat (file-name-directory
+                           (directory-file-name dir-i))
+                          hxswfml-default-library-file))
+            nil t (concat (file-name-directory
+                           (directory-file-name dir-i))
+                          hxswfml-default-library-file)))
           genclass-i)
      (when (yes-or-no-p "Generate outlines? ")
        (setq genclass-i
