@@ -58,60 +58,29 @@
 (deflocal haxe-compiler-out-end 0
   "Position of the end of the last message received from haxe compiler")
 
-(deflocal haxe-compiler "haxe"
-  "The path to HaXe compiler")
-
-(deflocal haxe-server-host "127.0.0.1"
-  "The host to run HaXe compiler daemon")
-
-(deflocal haxe-server-port 1257
-  "The default port to connect to on HaXe compiler daemon")
-
-(deflocal haxe-max-responses 100
-  "The number of responses from the compiler server to keep in cache")
-
-(deflocal haxe-last-compiler-response nil
-  "This variable is updated by the filter function that reads from the 
-connection to HaXe compiler, it's content is the last response received")
-
-(deflocal haxe-server-responses 0
-  "The number of responses received so far from haxe compilation server")
-
-(deflocal haxe-received-status 2
-  "HaXe compiler will send large completion results in chunks, in order to
-accumulate all received chunks we need sort of a state-machine. This variable
-holds the status of receiving the info.
-	0 - received first chunk,
-	1 - received last chunk,
-	2 - receiving junk (error messages etc).")
-
-(deflocal haxe-compiler-process "haxe-server"
-  "The name given to the HaXe compiler process when started by automake
-or auto-completion")
-
-(deflocal haxe-network-process nil
-  "The reference to the network connection opened to HaXe complier")
-
-(deflocal haxe-network-status nil
-  "The status of the network connection in this buffer, possible values are:
-- nil (didn't start yet)
-- error (the process must be restarted to perform any action)
-- communicate (the process is being communicated to)
-- open (the process is ready to use and is idle)")
-
 (deflocal haxe-network-idle-timer nil
   "The idle timer that watches after the connection to the compilation
 server and tries to bring it up, if it was broken")
 
-(deflocal haxe-reconnected 0
-  "How many reconnection has been made already")
+(defvar haxe-compiler-default "haxe"
+  "The default haxe compiler to use")
+
+(defvar haxe-host-default "127.0.0.1"
+  "The default host to connect to for haxe compiler")
+
+(defvar haxe-port-default 1257
+  "The default port on which to connect to haxe compiler")
+
+(defvar haxe-max-responses 100
+  "The number of responses from the compiler server to keep in cache")
+
+(defconst haxe-compiler-process "haxe-server"
+  "The name given to the HaXe compiler process when started by automake
+or auto-completion")
 
 (defconst haxe-times-to-reconnect 10
   "How many times should the idle timer try to reconnect before considering
 the connection to be dead")
-
-(defvar haxe-restarting-server nil
-  "Set to `t' when server was shut down and is trying to restart")
 
 (defvar haxe-compiler-mode-hook nil
   "Hooks run by thaxe-compiler-mode when it starts")
@@ -125,9 +94,9 @@ the connection to be dead")
           (define-key map "\C-c\C-r" #'haxe-reconnect)
           map)))
 
-(defvar haxe-compilation-servers nil
+(defvar haxe-connections nil
   "The list of all currently active compilation servers
- (their buffers, actually)")
+ (the list of `haxe-connection')")
 
 (defvar haxe-network-process-buffer "*haxe-network-process-buffer*"
   "The buffer to hold the network process connecting to HaXe compiler server.
@@ -174,6 +143,18 @@ the second is for paren hint")
              :initform "haxe"
              :type string
              :documentation "Path to the compiler executable.")
+   (process :initarg :process
+            :type process
+            :documentation "The process of this connection.")
+   (connection :initarg :connection
+               :initfrom nil
+               :type (or null process)
+               :documentation
+               "The connection created to this instance of server.")
+   (reconnects :initfrom 0
+               :type integer
+               :documentation
+               "How many times this connection has tried to reconnect.")
    (connection-state
     :initform 'off
     :type symbol
@@ -211,6 +192,14 @@ the second is for paren hint")
              :documentation "The sentinel function for this connection
  (used in `make-network-process')."))
   "This class describes the shared connection to the HaXe compiler server")
+
+(defmacro haxe-with-connection (spec &rest body)
+  (let ((con (car spec))
+        (slots (cadr spec))
+        (buffer (or (caddr spec) '(current-buffer))))
+    `(let ((,con (haxe-connection-for-buffer ,buffer)))
+       (with-slots ,slots ,con
+         ,@body))))
 
 (defun haxe-get-buffer-property (buffer property)
   "Pops to BUFFER, reads the value of the PROPERTY and returns it."
@@ -348,6 +337,16 @@ But chosen a bad time to do it" input)
     (setq haxe-restarting-server t)
     (haxe-start-waiting-server)))
 
+(defun haxe-connection-for-buffer (buffer)
+  (unless (bufferp buffer) (setq buffer (get-buffer buffer)))
+  (loop for connection in haxe-connections
+        for found = 
+        (loop for buf in (oref connection buffers)
+              do (when (eql (if (bufferp buffer) buffer
+                              (get-buffer buffer)) buf)
+                   (return connection)))
+        do (when found (return found))))
+
 (defun haxe-reconnect ()
   (interactive)
   (setq haxe-reconnected 0
@@ -359,31 +358,37 @@ But chosen a bad time to do it" input)
   "Starts HaXe compilations server and connects to it.
 This function is bound to \\[haxe-connect-to-compiler-server]"
   (interactive)
-  (let ((old-proc (get-process haxe-compiler-process)))
-    (if (and old-proc (equal (process-status old-proc) 'open))
-        (setq haxe-network-process old-proc)
-      (haxe-log 3 "Trying to connect to HaXe compiler on %s:%s"
-                haxe-server-host haxe-server-port)
-      (while (and
-              (not (eql haxe-network-status 'open))
-              (< haxe-reconnected haxe-times-to-reconnect))
-        (setq haxe-network-process
-              (make-network-process
-               :name haxe-compiler-process
-               :family 'ipv4
-               :host haxe-server-host
-               :nowait t
-               :service haxe-server-port
-               ;; :buffer haxe-network-process-buffer
-               :sentinel #'haxe-network-process-sentinel
-               :filter #'haxe-listen-filter))
-        (incf haxe-reconnected)
-        (message "I'm spinning %s" haxe-reconnected)
-        (sleep-for 1))
-      (haxe-log 3 "Connected to HaXe compiler")
-      (setq haxe-reconnected 0
-            haxe-network-idle-timer
-            (run-with-idle-timer 2 t #'haxe-network-tick)))))
+  (haxe-with-connection
+   (con (connection
+         filter sentinel host port
+         connection-state reconnects))
+   (unless (and connection (equal (process-status connection) 'open))
+     (haxe-log 3 "Trying to connect to HaXe compiler on %s:%s" host port)
+     (while (and
+             (not (eql connection-state 'open))
+             (< reconnects haxe-times-to-reconnect))
+       (when connection (delete-process connection))
+       (setq connection
+             (make-network-process
+              :name haxe-compiler-process
+              :family 'ipv4
+              :host host
+              :nowait t
+              :service port
+              ;; :buffer haxe-network-process-buffer
+              ;; :sentinel #'haxe-network-process-sentinel
+              ;; :filter #'haxe-listen-filter
+              :filter filter
+              :sentinel sentinel))
+       (incf reconnects)
+       (message "I'm spinning %s" reconnects)
+       (sleep-for 1))
+     (haxe-log 3 (if (eql connection 'open)
+                     "Connected to HaXe compiler"
+                   "Connection to HaXe compiler failed permanently."))
+     (setq haxe-reconnected 0
+           haxe-network-idle-timer
+           (run-with-idle-timer 2 t #'haxe-network-tick)))))
 
 (defun haxe-send-to-server ()
   "Sends the substring `haxe-compiler-in-start' to
@@ -415,44 +420,76 @@ This function is bound to \\[haxe-connect-to-compiler-server]"
         haxe-compiler-in-end (point)))
 
 ;;;###autoload
-(defun haxe-start-waiting-server (&optional compiler host port)
+(defun haxe-start-waiting-server (&optional restart compiler host port)
   "Starts HaXe `haxe-compiler' on `haxe-server-host':`haxe-server-port'
 with \"--wait\" for the future requests made by autocompletion
 or flymake.
+RESTART is only used when called non-interactively, this instructs to
+reuse the old buffer and its connection rather then create a new one.
 This function is bound to \\[haxe-start-waiting-server]"
   (interactive
    (let ((compiler-i
           (read-string "HaXe compiler: "
-                       haxe-compiler t haxe-compiler))
+                       haxe-compiler-default t
+                       haxe-compiler-default))
          (host-i
           (read-string "HaXe server host: "
-                       haxe-server-host t haxe-server-host))
+                       haxe-host-default t haxe-host-default))
          (port-i
-          (read-number "HaXe server port: " haxe-server-port)))
-     (message "host: %s, port: %s" host-i port-i)
-     (list compiler-i host-i port-i)))
+          (read-number "HaXe server port: " haxe-port-default)))
+     (list nil compiler-i host-i port-i)))
   (unless (called-interactively-p 'interactive)
-    (unless compiler (setq compiler haxe-compiler))
-    (unless host (setq host haxe-server-host))
-    (unless port (setq port haxe-server-port)))
-  (let ((new-buffer
-         (get-buffer-create
-          (generate-new-buffer-name
-           " *haxe-waiting-server*"))))
-    (message "1 host: %s, 1 port: %s -> %s"
-             host port (called-interactively-p 'interactive))
-    (start-process compiler new-buffer compiler
-                   "--wait" 
-                   (format "%s:%d" host port))
+    (let ((con (haxe-connection-for-buffer (current-buffer))))
+      (unless compiler
+        (setq compiler
+              (or (oref compiler con) haxe-compiler-default)))
+      (unless host
+        (setq host (or (oref host con) haxe-host-default)))
+      (unless port
+        (setq host (or (oref port con) haxe-port-default)))))
+  ;; TODO: must remember to kill process before restarting.
+  (let* ((new-buffer
+          (get-buffer-create
+           (generate-new-buffer-name
+            " *haxe-waiting-server*")))
+         (proc (start-process compiler new-buffer compiler
+                              "--wait" 
+                              (format "%s:%d" host port))))
     (bury-buffer new-buffer)
-    (unless haxe-restarting-server
-      (switch-to-buffer
-       (get-buffer-create "*haxe-interactive-server*"))
-      (haxe-compiler-mode))
-    (setq haxe-compiler compiler
-          haxe-server-host host
-          haxe-server-port port)
+    (if (not restart)
+        (let ((buff
+               (switch-to-buffer
+                (get-buffer-create "*haxe-interactive-server*"))))
+          (haxe-compiler-mode)
+          (push (make-instance 'haxe-connection
+                               :compiler compiler
+                               :host host
+                               :port port
+                               :process proc
+                               :buffers (list buff))
+                haxe-connections))
+      (with-slots (compiler host port process)
+          (haxe-connection-for-buffer (current-buffer))
+        (setq compiler compiler
+              host host
+              port port
+              process proc)))
     (haxe-connect-to-compiler-server)))
+
+(defun haxe-server-cleanup-hook ()
+  (haxe-with-connection
+   (con (buffers process connection))
+   (message "Do you know who con is? %s" con)
+   (setq buffers
+         (remove-if (lambda (x) (eql x (current-buffer)))
+                    buffers))
+   (unless buffers
+     (delete-process process)
+     (when connection
+       (delete-process connection))
+     (setq haxe-connections
+           (remove-if (lambda (x) (eql x con))
+                      haxe-connections)))))
 
 (define-derived-mode haxe-compiler-mode fundamental-mode
   "Haxe Compiler interaction mode"
@@ -464,7 +501,8 @@ This mode uses its own keymap:
   (setq major-mode 'haxe-compiler-mode)
   (use-local-map haxe-compiler-mode-map)
   (setq mode-name "HaXe Interactive Compiler")
-  (run-hooks 'haxe-compiler-mode-hook))
+  (run-hooks 'haxe-compiler-mode-hook)
+  (add-hook 'kill-buffer-hook #'haxe-server-cleanup-hook nil t))
 
 (provide 'haxe-compiler-mode)
 
