@@ -39,10 +39,12 @@
 ;; Macros
 
 (defmacro deflocal (var &rest body)
+  "Declares a variable that must be local to the buffer, where it is declared."
   (let ((symb var)
         (val (car body))
         (doc (cadr body)))
-    `(with-no-warnings
+    `(progn
+       (defvar ,symb)
        (set (make-local-variable ',symb) ,val)
        (put ',symb 'variable-documentation ,doc))))
 
@@ -63,16 +65,13 @@
   `(if (boundp ,local) (symbol-value ,local)
      (error "Unbound buffer-local variable `%s'" ,local))))
 
-(defmacro setlocal (var value)
-  (let ((local (list 'quote var)))
-  `(if (boundp ,local) (set ,local ,value)
-     (error "Unbound buffer-local variable `%s'" ,local))))
-
-;; (defadvice gv-get (around haxe-gv-get (place do))
-;;   (message "do: %s" do)
-;;   (if (and (consp place) (eq (car place) 'local))
-;;       (apply #'local (cons do (rest place)))
-;;     ad-do-it))
+(defmacro haxe-local-init* (varspecs)
+  (declare (indent 3))
+  (append '(progn)
+          (loop for (key value) in varspecs by #'cdr
+                collect
+                (list 'set (list 'make-local-variable
+                                 (list 'quote key)) value))))
 
 (defun haxe-get-buffer-property (buffer property)
   "Pops to BUFFER, reads the value of the PROPERTY and returns it."

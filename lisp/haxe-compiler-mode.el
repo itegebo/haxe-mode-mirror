@@ -261,7 +261,7 @@ a one to one correspondence.")
   (message "haxe-network-process-sentinel <%s>" input)
   (when (stringp input)
     (haxe-with-connection-process
-     (con (connection-state) process)
+     (con (connection-state reconnects) process)
      (message "did you find the connection? %s" con)
      (cond
       ((or
@@ -269,20 +269,26 @@ a one to one correspondence.")
         (haxe-string-starts-with input "connection broken by"))
        (setq connection-state 'error))
       ((string= input "open")
-       (setq connection-state 'open
-             haxe-restarting-server t
-             haxe-reconnected 0))
-      (t (setq connection-state 'open
-               haxe-restarting-server t
-               haxe-reconnected 0)
+       (setq connection-state 'open reconnects 0))
+      (t (setq connection-state 'open reconnects 0)
          (haxe-append-server-response input))))))
 
 (defun haxe-network-tick ()
-  (when (and (< haxe-reconnected haxe-times-to-reconnect)
-             (eql haxe-network-status 'error))
-    (incf haxe-reconnected)
-    (setq haxe-restarting-server t)
-    (haxe-start-waiting-server)))
+  "This is a timer handler function it looks after the connection
+established to HaXe compilation server and tries to restore it
+if it failed before."
+  (haxe-with-connection
+   (con (reconnects connection-state process connection))
+   (when (and (< reconnects haxe-times-to-reconnect)
+              (eql connection-state 'error))
+     (when process
+       (delete-process process)
+       (setq process nil))
+     (when connection
+       (delete-process connection)
+       (setq connection nil))
+     (incf reconnects)
+     (haxe-start-waiting-server))))
 
 (defun haxe-connection-for-buffer (buffer)
   (unless (bufferp buffer) (setq buffer (get-buffer buffer)))
@@ -313,8 +319,12 @@ This function is bound to \\[haxe-reconnect]"
    (con (process connection reconnects connection-state))
    (setq reconnects 0
          connection-state 'off)
-   (when process (delete-process process))
-   (when connection (delete-process connection)))
+   (when process
+     (delete-process process)
+     (setq process nil))
+   (when connection
+     (delete-process connection)
+     (setq connection nil)))
   (haxe-start-waiting-server))
 
 ;;;###autoload
@@ -347,8 +357,8 @@ This function is bound to \\[haxe-connect-to-compiler-server]"
      (haxe-log 3 (if (eql connection-state 'open)
                      "Connected to HaXe compiler"
                    "Connection to HaXe compiler failed permanently."))
-     (setq haxe-reconnected 0
-           haxe-network-idle-timer
+     (setf reconnects 0
+           (local haxe-network-idle-timer)
            (run-with-idle-timer 2 t #'haxe-network-tick)))))
 
 (defun haxe-send-to-server ()
@@ -465,11 +475,13 @@ This mode uses its own keymap:
   (erase-buffer)
   (setq major-mode 'haxe-compiler-mode)
   (use-local-map haxe-compiler-mode-map)
-  (setf mode-name "HaXe Interactive Compiler"
-        (local haxe-compiler-in-start) (point-min)
-        (local haxe-compiler-in-end) (point-min)
-        (local haxe-compiler-out-start) (point-min)
-        (local haxe-compiler-out-end) (point-min))
+  (setf mode-name "HaXe Interactive Compiler")
+  (haxe-local-init*
+      ((haxe-compiler-in-start (point-min))
+       (haxe-compiler-in-end (point-min))
+       (haxe-compiler-out-start (point-min))
+       (haxe-compiler-out-end (point-min))
+       (haxe-network-idle-timer nil)))
   (run-hooks 'haxe-compiler-mode-hook)
   (add-hook 'kill-buffer-hook #'haxe-server-cleanup-hook nil t))
 
