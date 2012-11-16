@@ -86,6 +86,7 @@
 (require 'xml)
 (require 'ehelp)
 (require 'speedbar nil t)
+(require 'haxe-utils)
 (require 'haxe-help)
 (require 'haxe-project)
 (require 'haxe-completion)
@@ -879,18 +880,18 @@ with HaXe macro metadata." nil)
   (message "haxe-flymake-init completion-requested %s" haxe-completion-requested)
   (unless haxe-completion-requested
     (let ((create-temp-f 'haxe-flymake-create-temp-intemp)
-	  (use-relative-base-dir nil)
-	  (use-relative-source nil)
-	  (get-cmdline-f 'haxe-flymake-get-cmdline)
-	  args
-	  temp-source-file-name)
+          (use-relative-base-dir nil)
+          (use-relative-source nil)
+          (get-cmdline-f 'haxe-flymake-get-cmdline)
+          args
+          temp-source-file-name)
       (haxe-log 3 "Flymake HaXe init")
       (setq temp-source-file-name
-	    (flymake-init-create-temp-buffer-copy create-temp-f)
-	    args (flymake-get-syntax-check-program-args
-		  temp-source-file-name (haxe-resolve-project-root)
-		  use-relative-base-dir use-relative-source
-		  get-cmdline-f))
+            (flymake-init-create-temp-buffer-copy create-temp-f)
+            args (flymake-get-syntax-check-program-args
+                  temp-source-file-name (haxe-resolve-project-root)
+                  use-relative-base-dir use-relative-source
+                  get-cmdline-f))
       args)))
 
 (defun haxe-flymake-get-cmdline (source base-dir)
@@ -901,15 +902,24 @@ the command to run, and a list of arguments.  The resulting command is like:
   $ haxe `(haxe-resolve-project-root)'/`haxe-build-hxml'
 
 "
+  ;; FIXME: Need to reuse the .completion/ directory to avoid saving
+  ;; the current buffer. Also need to investigate the possiblity of
+  ;; reusing the connection to the server instead of going through
+  ;; creating another process. This would also allow us to manage all
+  ;; communication with compiler in one place.
   (save-buffer)
-  (list haxe-compiler
-	(append
-	 (list
-	  "--connect"
-	  (concat haxe-server-host ":" (number-to-string haxe-server-port)))
-	 (haxe-build-flymake-list
-	  (haxe-replace-all (substring (file-name-sans-extension (buffer-file-name))
-				  (+ (length (haxe-resolve-project-root)) 5)) [?/] [?.])))))
+  (haxe-with-connection-project
+   (con (compiler host port) haxe-current-project)
+   (list compiler
+         (append
+          (list
+           "--connect"
+           (concat host ":" (number-to-string port)))
+          (haxe-build-flymake-list
+           (haxe-replace-all
+            (substring
+             (file-name-sans-extension (buffer-file-name))
+             (+ (length (haxe-resolve-project-root)) 5)) [?/] [?.]))))))
 
 (defun haxe-flymake-cleanup ()
   "Called by flymake when it needs to cleanup after reporting"
@@ -929,13 +939,13 @@ so that it doesn't kill our files..."
 (defun haxe-build-flymake-list (source)
   "Builds the command run by flymake on the current buffer"
   (let ((conditionals (haxe-conditional-comps))
-	(result
-	 (append
-	  (haxe-build-cwd)
-	  (haxe-read-hxml)
-	  (list source))))
+        (result
+         (append
+          (haxe-build-cwd)
+          (haxe-read-hxml)
+          (list source))))
     (if conditionals
-	(append conditionals result)
+        (append conditionals result)
       result)))
 
 (defadvice flymake-after-change-function
@@ -1022,13 +1032,14 @@ tag information for FILE"
           (sort newlist (lambda (a b) (string< (car a) (car b))))
         (reverse newlist)))))
 
-(defun haxe-calculate-offset-from-vector (y x string)
-  (let ((moved 0) current)
-    (while (and (not (zerop x)) (not (zerop y)))
-      (if (not (zerop y))
-          (when (position current "\r\n") (decf y))
-        (return (+ moved x)))
-      (incf moved))))
+;; TODO: What was this meant for?
+;; (defun haxe-calculate-offset-from-vector (y x string)
+;;   (let ((moved 0) current)
+;;     (while (and (not (zerop x)) (not (zerop y)))
+;;       (if (not (zerop y))
+;;           (when (position current "\r\n") (decf y))
+;;         (return (+ moved x)))
+;;       (incf moved))))
 
 ;; Commenting to pass compilation w/o warnings
 ;; (defun haxe-generate-import (for-type)
@@ -1074,16 +1085,31 @@ Key bindings:
   ;; --------------------------- my changes ---------------------------
   
   (c-set-offset 'substatement-open 0)
-  (haxe-connect-to-compiler-server 1)
+  ;; TODO: put these definitions into map declaration
   ;; (local-set-key "." haxe-completion-method)
   (local-set-key "(" 'haxe-hint-paren)
   (local-set-key (kbd "C-c h") 'haxe-electric-help)
   (setq flymake-log-level 0)
-  (haxe-flymake-install)
+  ;; Here we should start setting up the connection.
   (haxe-identify-project-root)
-  (setq compile-command
-        (concat haxe-compiler " "
-                (haxe-resolve-project-root) haxe-build-hxml))
+  ;; Should already know enough to start the connection.
+  (save-window-excursion
+    (haxe-start-waiting-server))
+  ;; Now, can initialize flymake (HaXe server must be running already)
+  (haxe-flymake-install)
+  (if haxe-current-project
+      (haxe-with-connection-project
+       (con (compiler) haxe-current-project)
+       ;; haxe-build-hxml should be transformed into slot of the project
+       (setq compile-command
+             (concat compiler " "
+                     (haxe-resolve-project-root) haxe-build-hxml)))
+    ;; Perhaps this is just a single file, or for some other
+    ;; reason we failed to locate the project associated with
+    ;; this source
+    (setq compile-command
+          (concat haxe-compiler-default " "
+                  (haxe-resolve-project-root) haxe-build-hxml)))
   ;; make tag search case-insensitive
   (setq tags-case-fold-search nil)
   (flymake-mode)
@@ -1097,7 +1123,7 @@ Key bindings:
     (auto-complete-mode 1)
     (when (boundp 'ac-sources)
       (add-to-list 'ac-sources 'haxe-ac-dot-sources)))
-  (add-hook 'kill-buffer-hook 'haxe-kill-network-process)
+  (add-hook 'kill-buffer-hook #'haxe-kill-network-process nil t)
   ;; (haxe-try-set-ecb-outlines)
   ;; ---------------------------- end my changes ----------------------
   (run-hooks 'c-mode-common-hook 'haxe-mode-hook)

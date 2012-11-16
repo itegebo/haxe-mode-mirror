@@ -34,7 +34,7 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
+(require 'cl)
 (require 'haxe-log)
 
 (defvar haxe-install-dir
@@ -138,6 +138,11 @@ be called with no arguments and it must return an alist containing key-value
 pairs to substitute in the project templates upon project creation."
   :type '(or string function) :group 'haxe-mode)
 
+(defvar haxe-current-project nil
+  "This variable is set when loading project, it is needed to identify
+what project is currently in use for the file being edited.")
+
+;; FIXME: This hangs if there's no project. Needs an urgent fix.
 (defun haxe-identify-project-root ()
   "Lame attempt at finding the root directory of our project.
 The assumtion is that most people would call it `src', so we 
@@ -161,7 +166,7 @@ directory"
           (setq haxe-project-root (oref maybe-ede-project directory)
                 haxe-build-hxml
                 (concat (oref maybe-ede-project configuration-default) ".hxml")
-                haxe-compiler (oref maybe-ede-project compiler)
+                haxe-compiler-default (oref maybe-ede-project compiler)
                 haxe-project-sources (oref maybe-ede-project sources)))))
     (when (and (null haxe-project-root) (require 'eproject nil 'noerror))
       ;; In case we discover that eproject is used, first try

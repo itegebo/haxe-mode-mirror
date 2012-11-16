@@ -36,6 +36,7 @@
 
 (require 'cl)
 (require 'haxe-log)
+(require 'haxe-utils)
 (require 'haxe-project)
 (require 'haxe-help)
 (require 'haxe-compiler-mode)
@@ -297,60 +298,6 @@ find nothing and return nil."
   ;;   haxe-last-ac-candidates-filtered)
   haxe-last-ac-candidates-filtered)
 
-(defun haxe-remove-if! (predicate sequence)
-  "Destructively removes conses that match PREDICATE from SEQUENCE.
-Returns the list of removed conses."
-  (let ((processed sequence)
-        processed-head removed
-        removed-tail cons-to-remove)
-    (while processed
-      (if (funcall predicate (car processed))
-          (progn
-            (setq cons-to-remove processed)
-            (rplacd processed-head (cdr processed))
-            (setq processed (cdr processed))
-            (rplacd cons-to-remove nil)
-            (if removed 
-                (progn
-                  (rplacd removed-tail cons-to-remove)
-                  (setq removed-tail (cdr removed-tail)))
-              (setq removed cons-to-remove
-                    removed-tail cons-to-remove)))
-        (setq processed-head processed
-              processed (cdr processed))))
-    removed))
-
-(defun haxe-levenstain (in-a in-b &optional dist)
-  "Finds Levenstain distance from IN-A to IN-B"
-  (when (not dist) (setf dist 0))
-  (let (temp-string replaced current-char)
-    (cond
-     ((string= in-a in-b) dist)
-     ((< (length in-a) (length in-b))
-      (setf temp-string (make-string (1- (length in-b)) ?\ ))
-      (dotimes (i (length temp-string)
-                  (haxe-levenstain in-a temp-string (1+ dist)))
-        (setf current-char (aref in-b i))
-        (cond
-         ((and (not replaced) (< i (length in-a)))
-          (if (char-equal current-char (aref in-a i))
-              (setf (aref temp-string i) current-char)
-            (setf replaced t)))
-         ((not replaced) (setf replaced t))
-         (t (setf (aref temp-string i) current-char)))))
-     ((< (length in-b) (length in-a))
-      (haxe-levenstain in-b in-a dist))
-     (t (setf temp-string (make-string (length in-b) ?\ ))
-        (dotimes (i (length temp-string)
-                    (haxe-levenstain in-a temp-string (1+ dist)))
-          (setf current-char (aref in-b i))
-          (if (not replaced)
-              (if (char-equal current-char (aref in-a i))
-                  (setf (aref temp-string i) current-char)
-                (setf replaced t
-                      (aref temp-string i) (aref in-a i)))
-            (setf (aref temp-string i) current-char)))))))
-
 (defun fliter-candidates-levenstain (candidates)
   "Filters the candidates by establishing Levenstein distance from
 the `haxe-string-to-complete' to the candidate"
@@ -531,24 +478,6 @@ is taken to be the name of the field to complete and their child node
                 haxe-last-ac-candidates completions)))
     (error (haxe-log 0 "Error when parsing completion options %s, %s" var xml))))
 
-(defun haxe-replace-all (source search-for replace-with)
-  "Utility function for making multiple replacements in a string.
-SOURCE is the string to replace in (not modified)
-SEARCH-FOR is an array of characters to search for in SOURCE
-REPLACE-WITH is an array of characters that have to be used as replacements
-to the characters with the same subscripts in the SEARCH-FOR found in SOURCE.
-
-For example (replace-all \"foo/bar/baz.tar.gz\" [?/ ?.] [?\\\\ ?_]) =>
-\"foo\\bar\\baz_tar_gz\"
-"
-  (with-output-to-string
-    (dotimes (i (length source))
-      (let* ((current (aref source i))
-             (pos (position current search-for)))
-        (princ 
-         (char-to-string
-          (if pos (aref replace-with pos) current)))))))
-
 (defun haxe-exception-p (first-char second-char exceptions)
   "Werifies whether the EXCEPTIONS contains a pair (FIRST-CHAR SECOND-CHAR)"
   (dolist (i exceptions)
@@ -665,63 +594,6 @@ See also `haxe-folding-delimiters', `haxe-folding-terminators',
                 (buffer-substring start end) width pad-left pad-right)))
     (kill-region start end)
     (insert input)))
-
-(defun haxe-fold-string (input max-length &optional pad-left pad-right)
-  "Folds string producing lines of maximum MAX-LENGTH length"
-  (with-output-to-string
-    (unless pad-left (setq pad-left 0))
-    (unless pad-right (setq pad-right 0))
-    (dotimes (i pad-left) (princ " "))
-    (let ((offset 0) last-space current last-return)
-      (dotimes (i (length input))
-        (setq current (aref input i))
-        (if (= offset max-length)
-            (progn
-              (setq last-return t offset 0)
-              (unless (position current "\t\r\n ")
-                (princ (char-to-string current)))
-              (dotimes (i pad-right) (princ " "))
-              (princ "\n")
-              (dotimes (i pad-left) (princ " ")))
-          (cond
-           ((position current "\r\n")
-            (unless (or last-space last-return)
-              (princ " ")
-              (incf offset)
-              (setq last-return nil)))
-           ((and (position current "\t ") last-return))
-           (t (princ (char-to-string current))
-              (incf offset)
-              (setq last-return nil))))
-        (setq last-space (position current " \t")))
-      (unless last-return (dotimes (i pad-right) (princ " "))))))
-
-(defun haxe-condence-white-string (input)
-  "Replaces subsequent white space characters with a single whitespace character"
-  (with-output-to-string
-    (let (last-space current)
-      (dotimes (i (length input))
-        (setq current (aref input i))
-        (unless (and last-space (position current " \t"))
-          (princ (char-to-string current)))
-        (setq last-space (position current " \t"))))))
-
-(defun haxe-trim-string (input &rest characters)
-  "Removes blanks and CHARACTERS from INPUT on its left and on its right"
-  (if input
-      (let ((i 0) (e (- (length input) 2))
-            (mask (concat " \t\r\n" (or characters "")))
-            start-found end-found c ce)
-        (catch 't
-          (while (>= e i)
-            (setq c (aref input i) ce (aref input e))
-            (when (and (not start-found) (not (position c mask)))
-              (setq start-found i))
-            (when (and (not end-found) (not (position ce mask)))
-              (setq end-found e))
-            (when (and start-found end-found)
-              (throw 't (substring input start-found (1+ end-found))))
-            (incf i) (decf e)) "")) ""))
 
 (defun haxe-parse-hint-response (xml)
   "Parses the function hint supplied by HaXe compiler."

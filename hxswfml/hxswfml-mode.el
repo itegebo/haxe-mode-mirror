@@ -32,6 +32,7 @@
 (require 'nxml-mode)
 (require 'eieio)
 (require 'thingatpt)
+(require 'haxe-utils)
 
 (defcustom hxswfml-compiler "hxswfml"
   "The location of HXSwfML executable"
@@ -122,18 +123,6 @@ its value.")
 (defvar hxswfml-genclass-trie nil
   "This variable is set to the trie for replacing in template
 for generating classes. You shouldn't need to set it yourself.")
-
-(defclass hxswfml-trie ()
-  ((trie :initarg :trie
-         :initform nil
-         :type (or null hash-table)
-         :documentation "The actual trie data.")
-   (keys :initarg :keys
-         :initfrom nil
-         :type (or null hash-table)
-         :documentation "The kyes (hash-tables) pointing to the 
-trie leafs which have values"))
-  "The class for manipulating prefix tries")
 
 (defun hxswfml--genclass-prefix-function (dir)
   "Converts the directory name into a package name using these
@@ -317,7 +306,7 @@ current buffer."
 (defun hxswfml--file-package (name separator)
   "Returns the directory part of the NAME with the directory
 separator characters replaced by SEPARATOR character."
-  (hxswfml-replace-char
+  (haxe-replace-char
    (substring
     name 0
     (or (position ?\/ name :from-end t) 0)) ?\/ separator))
@@ -327,110 +316,6 @@ separator characters replaced by SEPARATOR character."
     ;; if it was a file, where we wanted to create a directory
     ;; then let it throw.
     (make-directory dir t)) dir)
-
-(defun hxswfml-replace-char (string char-a char-b)
-  "Because there's no function in eLisp to do this"
-  (loop for i from 0 below (length string)
-        for c = (aref string i)
-        do (when (char-equal c char-a)
-             (aset string i char-b))
-        finally (return string)))
-
-(defun hxswfml-replace-string (string string-a string-b)
-  "Because there's no function in eLisp to do this"
-  (loop for i from 0 upto
-        (- (length string) (length string-a))
-        for c = (aref string i)
-        with alen = (length string-a)
-        with result = nil
-        with last = 0
-        do (loop for j from i below (+ i alen)
-                 do (unless
-                        (char-equal
-                         (aref string-a (- j i))
-                         (aref string j))
-                      (return))
-                 finally
-                 (setq result
-                       (cons (substring string last (- j alen)) result)
-                       i (1- j) last j))
-        finally
-        (return
-         (if result 
-             (mapconcat
-              #'identity
-              (reverse (cons (substring string last) result)) string-b)
-           string))))
-
-(defun hxswfml-replace-trie (string trie)
-  "Searches for all matches in STRING from TRIE and replaces them"
-  (loop for i from 0 below (length string)
-        for c = (aref string i)
-        for branch = (gethash c trie)
-        with result = nil
-        with last-pos = 0
-        with slen = (length string)
-        do (when branch 
-             (loop for j from (1+ i) upto slen
-                   ;; can do upto here because will certainly
-                   ;; exit sooner then the one after last
-                   ;; character
-                   for cj = (aref string j)
-                   for rep-potential = (gethash t branch)
-                   with replacement = nil
-                   with rep-pos = j
-                   do (progn
-                        (when rep-potential
-                          (setq replacement rep-potential rep-pos j))
-                        (setq branch (gethash cj branch))
-                        (when (or (not branch) (= (1+ j) slen))
-                          (when (= (1+ j) slen)
-                            (setq rep-potential (gethash t branch)
-                                  replacement (or rep-potential replacement)
-                                  rep-pos (1+ j) j (1+ j)))
-                          (when replacement
-                            (setq result
-                                  (cons
-                                   (concat
-                                    (substring string last-pos i)
-                                    replacement)
-                                   result)
-                                  i (1- rep-pos) last-pos j))
-                          (return)))))
-        finally
-        (return
-         (reduce #'concat
-                 (reverse (cons (substring string last-pos) result))))))
-
-(defun hxswfml-build-trie (alist)
-  "Builds a trie (a list, containing number of hash-maps, each hash-map
-uses single character for a key, except for `t' symbol, which, if present
-as a key is the key for the value one has to substitute with."
-  (loop for (key . value) in alist
-        with trie-data = (make-hash-table)
-        with trie-keys = (make-hash-table :test #'equal)
-        for leaf =
-        (reduce (lambda (branch c)
-                  (or (gethash c branch)
-                      (puthash c (make-hash-table) branch)))
-                key :initial-value trie-data)
-        do (progn
-             (puthash t value leaf)
-             (puthash key leaf trie-keys))
-        finally
-        (return (make-instance 'hxswfml-trie
-                               :trie trie-data
-                               :keys trie-keys))))
-
-(defun hxswfml-update-trie (trie alist)
-  "Replaces all TRIE's keys with new values from ALIST"
-  (loop for (key . value) in alist
-        with trie-keys = (oref trie keys)
-        for table = (gethash key trie-keys)
-        do (if table
-               (puthash t value table)
-             (error "Key `%s' is not in the trie" key))
-        finally (return trie)))
 
 ;; TODO: This may be useful as a separate package.
 (defun hxswfml-class-from-template (save-in file class-name tag)
@@ -449,16 +334,16 @@ value of TAG and it's corresponding value from
          (superclass (cdr (assoc tag hxswfml-default-superclasses)))
          (dir-with-package
           (concat save-in
-                  (hxswfml-replace-char
+                  (haxe-replace-char
                    (format "%s" package) ?\. ?\/))))
     (if hxswfml-genclass-trie
-        (hxswfml-update-trie
+        (haxe-update-trie
          hxswfml-genclass-trie
          `(("$package" . ,package)
            ("$super_class" . ,superclass)
            ("$class" . ,class-name)))
       (setq hxswfml-genclass-trie
-            (hxswfml-build-trie
+            (haxe-build-trie
              `(("$package" . ,package)
                ("$super_class" . ,superclass)
                ("$class" . ,class-name)))))
@@ -468,7 +353,7 @@ value of TAG and it's corresponding value from
          (hxswfml--ensure-directory dir-with-package))
       (message "Generating outline: <%s/%s>"
                dir-with-package (concat class-name ".hx"))
-      (insert (hxswfml-replace-trie
+      (insert (haxe-replace-trie
                hxswfml-class-template
                (oref hxswfml-genclass-trie trie))))))
 
