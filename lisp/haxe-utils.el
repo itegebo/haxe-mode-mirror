@@ -73,6 +73,37 @@
                 (list 'set (list 'make-local-variable
                                  (list 'quote key)) value))))
 
+(defmacro haxe-deferror (name message &optional aliases docstring)
+  "Defines an error symbol NAME with the MESSAGE being it's `error-message'
+If the third argument is a string, then it is used to set the documentation
+for this symbol, else it is treated as aliases for this error. In the
+later case, if there is one more argument, it is considered the documentation
+string."
+  (let ((aliases (when (or docstring (not (stringp aliases)))
+                   (if (listp aliases) aliases (list aliases))))
+        (docstring (or docstring (when (stringp aliases) aliases))))
+  `(progn
+     (put ',name 'error-conditions '(error haxe-error ,@aliases))
+     (put ',name 'error-message ,message)
+     ,@(when docstring
+         (list (list 'put (list 'quote name)
+                     (list 'quote 'documentation) docstring))))))
+
+(defun haxe-has-face-at-point (face &optional position)
+  (unless position (setq position (point)))
+  (unless (consp face) (setq face (list face)))
+  (let ((props (text-properties-at position)))
+    (loop for (key value) on props by #'cddr
+          do (when (and (eql key 'face) (member value face))
+               (return t)))))
+
+(defun haxe-face-start (face)
+  (save-excursion
+    (while (and (haxe-has-face-at-point face) (not (bolp)))
+      (backward-char))
+    (- (point) (save-excursion (move-beginning-of-line 1))
+       (if (bolp) 0 -1))))
+
 (defun haxe-get-buffer-property (buffer property)
   "Pops to BUFFER, reads the value of the PROPERTY and returns it."
   (let ((result
