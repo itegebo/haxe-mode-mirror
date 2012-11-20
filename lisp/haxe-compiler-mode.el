@@ -86,7 +86,6 @@ the connection to be dead")
 
 (defun haxe-insert-conditionally ()
   (interactive)
-  (message "haxe-insert-conditionally")
   (when (eql (getlocal haxe-message-state) 'composing)
     (call-interactively #'self-insert-command)))
 
@@ -186,7 +185,7 @@ the second is for paren hint")
     :documentation "When receiving messages form server this slot can be:
 - nothing (nothing received yet)
 - junk (received input, but couldn't decipher it)
-- incomplete (seems like receiving a valid message, but not all parts received yet)
+- incomplete (receiving a valid message, but not all parts received yet)
 - full (finished receiving message).")
    (message :initform nil
             :type (or null string)
@@ -204,9 +203,9 @@ the second is for paren hint")
             :initform nil
             :type symbol
             :documentation "This is the project associated with a group of
-HaXe source files all of which will use this connection when requesting flymake or
-compilation. However, projects may define multiple connection, so this is not
-a one to one correspondence.")
+HaXe source files all of which will use this connection when requesting
+flymake or compilation. However, projects may define multiple connection,
+so this is not a one to one correspondence.")
    (buffers :initarg :buffers
             :initform nil
             :type list
@@ -222,32 +221,44 @@ a one to one correspondence.")
              :documentation "The sentinel function for this connection
  (used in `make-network-process')."))
   :allow-nil-initform t
-  :documentation "This class describes the shared connection to the HaXe compiler server")
+  :documentation
+  "This class describes the shared connection to the HaXe compiler server")
 
 (defmacro haxe-with-connection (spec &rest body)
+  "Similar to `with-slots', but will search for the connection object in the
+buffer of the connection SPEC, the format of the speck is:
+ (CONNECTION (SLOT-SPECS) &optional BUFFER)
+CONNECTION is the `haxe-connection' object which operates on this buffer
+SLOT-SPECS are the slot specification exactly as they appear in `with-slots'
+Optional BUFFER can be a buffer name, a buffer object or nil. In the later
+case, the current buffer is used."
   (declare (indent 3))
   (let ((con (car spec))
         (slots (cadr spec))
         (buffer (or (caddr spec) '(current-buffer))))
-    `(let ((,con (haxe-connection-for-buffer ,buffer)))
+    `(let ((,con (haxe--connection-for-buffer ,buffer)))
        (with-slots ,slots ,con
          ,@body))))
 
 (defmacro haxe-with-connection-process (spec &rest body)
+  "Similar to `haxe-with-connection' except for that the process is
+used to identify the connection."
   (declare (indent 3))
   (let ((con (car spec))
         (slots (cadr spec))
         (proc (caddr spec)))
-    `(let ((,con (haxe-connection-for-process ,proc)))
+    `(let ((,con (haxe--connection-for-process ,proc)))
        (with-slots ,slots ,con
          ,@body))))
 
 (defmacro haxe-with-connection-project (spec &rest body)
+  "Similar to `haxe-with-connection' except for that the project is
+used to identify the connection."
   (declare (indent 3))
   (let ((con (car spec))
         (slots (cadr spec))
         (proj (caddr spec)))
-    `(let ((,con (haxe-connection-for-project ,proj)))
+    `(let ((,con (haxe--connection-for-project ,proj)))
        (with-slots ,slots ,con
          ,@body))))
 
@@ -290,11 +301,12 @@ a one to one correspondence.")
     (setf (local haxe-message-state) 'composing)))
 
 (defun haxe-network-process-sentinel (process input)
+  "This function is used for monitoring the TCP connection established
+between HaXe compilation server and some buffer."
   (message "haxe-network-process-sentinel <%s>" input)
   (when (stringp input)
     (haxe-with-connection-process
         (con (connection-state reconnects) process)
-        (message "did you find the connection? %s" con)
         (setf (local haxe-message-state) 'out)
       (cond
        ((or
@@ -342,7 +354,9 @@ if it failed before."
         (incf reconnects)
         (haxe-start-waiting-server t))))
 
-(defun haxe-connection-for-buffer (buffer)
+(defun haxe--connection-for-buffer (buffer)
+  "A helper function for `haxe-with-connection' macro, locates
+the `haxe-connection' object."
   (unless (bufferp buffer) (setq buffer (get-buffer buffer)))
   (loop for connection in haxe-connections
         for found = 
@@ -352,12 +366,16 @@ if it failed before."
                    (return connection)))
         do (when found (return found))))
 
-(defun haxe-connection-for-process (process)
+(defun haxe--connection-for-process (process)
+  "A helper function for `haxe-with-connection-process' macro, locates
+the `haxe-connection' object."
   (loop for con in haxe-connections
         for found = (when (eql (oref con connection) process) con)
         do (when found (return found))))
 
-(defun haxe-connection-for-project (project)
+(defun haxe--connection-for-project (project)
+  "A helper function for `haxe-with-connection-project' macro, locates
+the `haxe-connection' object."
   (loop for con in haxe-connections
         for found = (when (eql (oref con project) project) con)
         do (when found (return found))))
@@ -438,7 +456,6 @@ This function is bound to \\[haxe-connect-to-compiler-server]"
     (let ((inhibit-read-only t))
       (kill-region start end))
     (goto-char (point-max))
-    (haxe-log 0 "sending message <%s>" message)
     (setf (local haxe-message-state) 'out)
     (haxe-with-connection
         (con (connection request))
@@ -455,7 +472,9 @@ This function is bound to \\[haxe-connect-to-compiler-server]"
     (setf (local haxe-compiler-in-end) (point-max)
           (local haxe-compiler-in-start) (point-max))))
 
-(defun haxe-sanitize-response (response)
+(defun haxe--sanitize-response (response)
+  "A helper function for removing non-printable characters
+from RESPONSE."
   (with-output-to-string 
     (loop for i across response
           do (when (>= i ?\ ) (write-char i)))))
@@ -463,7 +482,7 @@ This function is bound to \\[haxe-connect-to-compiler-server]"
 (defun haxe-append-server-response (response)
   "Appends HaXe server response to the current buffer."
   (goto-char (point-max))
-  (haxe-compiler-insert (haxe-sanitize-response response))
+  (haxe-compiler-insert (haxe--sanitize-response response))
   (setf (local haxe-message-state) 'composing)
   (haxe-compiler-insert haxe-ps "\n")
   (put-text-property
@@ -501,7 +520,7 @@ This function is bound to \\[haxe-start-waiting-server]"
           (read-number "HaXe server port: " haxe-port-default)))
      (list nil compiler-i host-i port-i)))
   (unless (called-interactively-p 'interactive)
-    (let ((con (haxe-connection-for-buffer (current-buffer))))
+    (let ((con (haxe--connection-for-buffer (current-buffer))))
       (unless compiler
         (setq compiler
               (or (oref con compiler) haxe-compiler-default)))
@@ -534,7 +553,7 @@ This function is bound to \\[haxe-start-waiting-server]"
                 haxe-connections)
           (message "======= new connection created ===="))
       (with-slots (compiler host port process)
-          (haxe-connection-for-buffer (current-buffer))
+          (haxe--connection-for-buffer (current-buffer))
         (message "restarted and reset the process")
         (setq compiler compiler
               host host
@@ -543,19 +562,25 @@ This function is bound to \\[haxe-start-waiting-server]"
     (haxe-connect-to-compiler-server)))
 
 (defun haxe-server-cleanup-hook ()
-  (haxe-with-connection
-      (con (buffers process connection))
-      (message "Do you know who con is? %s" con)
-      (setq buffers
-            (remove-if (lambda (x) (eql x (current-buffer)))
-                       buffers))
-    (unless buffers
-      (delete-process process)
-      (when connection
-        (delete-process connection))
-      (setq haxe-connections
-            (remove-if (lambda (x) (eql x con))
-                       haxe-connections)))))
+  "The hook that runs after the buffer with the process is closed
+it should look for orphan processes and destroy them as well as
+remove orhpan connection objects."
+  ;; TODO: need a separate function for forcing the cleanup if
+  ;; this hook fails
+  (ignore-errors                        ; Better fail, then
+                                        ; keep the buffer live
+    (haxe-with-connection
+        (con (buffers process connection))
+        (setq buffers
+              (remove-if (lambda (x) (eql x (current-buffer)))
+                         buffers))
+        (unless buffers
+          (delete-process process)
+          (when connection
+            (delete-process connection))
+          (setq haxe-connections
+                (remove-if (lambda (x) (eql x con))
+                           haxe-connections))))))
 
 ;; (defun haxe-before-change-hook (start end)
 ;;   (message "haxe-before-change-hook")
@@ -612,6 +637,8 @@ This mode uses its own keymap:
   (run-hooks 'haxe-compiler-mode-hook)
   (add-hook 'kill-buffer-hook #'haxe-server-cleanup-hook nil t)
   (insert haxe-ps)
+  (put-text-property
+   (point-min) (point-max) 'invisible t)
   (put-text-property
    (point-min) (point-max) 'face
    'haxe-face-pending)
